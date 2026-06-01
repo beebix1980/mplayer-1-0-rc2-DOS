@@ -469,7 +469,7 @@ static int write_packet(AVFormatContext *s, AVPacket *pkt){
             if(index<0) dummy.pos=0;
             else        dummy.pos= FFMIN(dummy.pos, st->index_entries[index].pos);
         }
-        sp= av_tree_find(nut->syncpoints, &dummy, ff_nut_sp_pos_cmp, NULL);
+        sp= av_tree_find(nut->syncpoints, &dummy, (int (*)(void *, const void *))ff_nut_sp_pos_cmp, NULL);
 
         nut->last_syncpoint_pos= url_ftell(bc);
         url_open_dyn_buf(&dyn_bc);

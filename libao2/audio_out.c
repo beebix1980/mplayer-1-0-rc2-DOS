@@ -77,10 +77,11 @@ extern ao_functions_t audio_out_v4l2;
 extern ao_functions_t audio_out_mpegpes;
 extern ao_functions_t audio_out_pcm;
 extern ao_functions_t audio_out_pss;
-
+extern ao_functions_t audio_out_sb16;
 ao_functions_t* audio_out_drivers[] =
 {
-// native:
+// native: SB16 is the primary driver
+        &audio_out_sb16,
 #ifdef HAVE_DIRECTX
         &audio_out_dsound,
 #endif

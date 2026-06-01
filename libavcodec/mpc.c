@@ -82,7 +82,7 @@ static int mpc7_decode_init(AVCodecContext * avctx)
     memset(c->oldDSCF, 0, sizeof(c->oldDSCF));
     av_init_random(0xDEADBEEF, &c->rnd);
     dsputil_init(&c->dsp, avctx);
-    c->dsp.bswap_buf(buf, avctx->extradata, 4);
+    c->dsp.bswap_buf((uint32_t *)buf, (uint32_t *)avctx->extradata, 4);
     ff_mpa_synth_init(mpa_window);
     init_get_bits(&gb, buf, 128);
 
@@ -224,7 +224,7 @@ static int mpc7_decode_frame(AVCodecContext * avctx,
     }
 
     bits = av_malloc(((buf_size - 1) & ~3) + FF_INPUT_BUFFER_PADDING_SIZE);
-    c->dsp.bswap_buf(bits, buf + 4, (buf_size - 4) >> 2);
+    c->dsp.bswap_buf((uint32_t *)bits, (uint32_t *)(buf + 4), (buf_size - 4) >> 2);
     init_get_bits(&gb, bits, (buf_size - 4)* 8);
     skip_bits(&gb, buf[0]);
 

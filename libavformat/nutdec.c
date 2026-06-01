@@ -104,7 +104,7 @@ static int get_packetheader(NUTContext *nut, ByteIOContext *bc, int calculate_ch
 //    start= url_ftell(bc) - 8;
 
     startcode= be2me_64(startcode);
-    startcode= av_crc04C11DB7_update(0, &startcode, 8);
+    startcode= av_crc04C11DB7_update(0, (const uint8_t *)&startcode, 8);
 
     init_checksum(bc, av_crc04C11DB7_update, startcode);
     size= get_v(bc);
@@ -791,7 +791,7 @@ static int read_seek(AVFormatContext *s, int stream_index, int64_t pts, int flag
         pos2= st->index_entries[index].pos;
         ts  = st->index_entries[index].timestamp;
     }else{
-        av_tree_find(nut->syncpoints, &dummy, ff_nut_sp_pts_cmp, next_node);
+        av_tree_find(nut->syncpoints, &dummy, (int (*)(void *, const void *))ff_nut_sp_pts_cmp, (void **)next_node);
         av_log(s, AV_LOG_DEBUG, "%"PRIu64"-%"PRIu64" %"PRId64"-%"PRId64"\n", next_node[0]->pos, next_node[1]->pos,
                                                     next_node[0]->ts , next_node[1]->ts);
         pos= av_gen_search(s, -1, dummy.ts, next_node[0]->pos, next_node[1]->pos, next_node[1]->pos,
@@ -800,7 +800,7 @@ static int read_seek(AVFormatContext *s, int stream_index, int64_t pts, int flag
         if(!(flags & AVSEEK_FLAG_BACKWARD)){
             dummy.pos= pos+16;
             next_node[1]= &nopts_sp;
-            av_tree_find(nut->syncpoints, &dummy, ff_nut_sp_pos_cmp, next_node);
+            av_tree_find(nut->syncpoints, &dummy, (int (*)(void *, const void *))ff_nut_sp_pos_cmp, (void **)next_node);
             pos2= av_gen_search(s, -2, dummy.pos, next_node[0]->pos     , next_node[1]->pos, next_node[1]->pos,
                                                 next_node[0]->back_ptr, next_node[1]->back_ptr, flags, &ts, nut_read_timestamp);
             if(pos2>=0)
@@ -808,7 +808,7 @@ static int read_seek(AVFormatContext *s, int stream_index, int64_t pts, int flag
             //FIXME dir but i think it does not matter
         }
         dummy.pos= pos;
-        sp= av_tree_find(nut->syncpoints, &dummy, ff_nut_sp_pos_cmp, NULL);
+        sp= av_tree_find(nut->syncpoints, &dummy, (int (*)(void *, const void *))ff_nut_sp_pos_cmp, NULL);
 
         assert(sp);
         pos2= sp->back_ptr  - 15;

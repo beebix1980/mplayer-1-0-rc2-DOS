@@ -19,7 +19,9 @@
 #include <malloc.h>
 #endif
 #include <unistd.h>
+#ifndef __DJGPP__
 #include <sys/mman.h>
+#endif
 #include <errno.h>
 #include <fcntl.h>
 #include <string.h>
@@ -32,6 +34,22 @@
 #include "wine/debugtools.h"
 #include "wine/heap.h"
 #include "ext.h"
+
+#ifdef __DJGPP__
+#define PROT_READ 1
+#define PROT_WRITE 2
+#define PROT_EXEC 4
+#define MAP_PRIVATE 1
+#define MAP_SHARED 2
+#define MAP_FIXED 4
+#define _SC_PAGESIZE 1
+static inline void* mmap(void* addr, size_t len, int prot, int flags, int fd, off_t offset) { return (void*)-1; }
+static inline int munmap(void* addr, size_t len) { return -1; }
+static inline int mprotect(void* addr, size_t len, int prot) { return -1; }
+#define sysconf djgpp_sysconf
+static inline long djgpp_sysconf(int name) { return 4096; }
+void* mmap_anon(void* addr, size_t len, int prot, int flags, off_t offset) { return (void*)-1; }
+#endif
 
 #if 0
 //REMOVE SIMPLIFY
@@ -442,14 +460,14 @@ LPVOID WINAPI VirtualAlloc(LPVOID address, DWORD size, DWORD type,  DWORD protec
 
     if ((type&(MEM_RESERVE|MEM_COMMIT)) == 0) return NULL;
 
-    if (type&MEM_RESERVE && (unsigned)address&0xffff) {
-	size += (unsigned)address&0xffff;
-	address = (unsigned)address&~0xffff;
+    if (type&MEM_RESERVE && (unsigned long)address&0xffff) {
+	size += (unsigned long)address&0xffff;
+	address = (LPVOID)((unsigned long)address&~0xffff);
     }
     pgsz = sysconf(_SC_PAGESIZE);
-    if (type&MEM_COMMIT && (unsigned)address%pgsz) {
-	size += (unsigned)address%pgsz;
-	address -= (unsigned)address%pgsz;
+    if (type&MEM_COMMIT && (unsigned long)address%pgsz) {
+	size += (unsigned long)address%pgsz;
+	address = (LPVOID)((unsigned long)address - (unsigned long)address%pgsz);
     }
 
     if (type&MEM_RESERVE && size<0x10000) size = 0x10000;

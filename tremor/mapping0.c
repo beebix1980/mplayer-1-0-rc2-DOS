@@ -297,7 +297,7 @@ static int mapping0_inverse(vorbis_block *vb,vorbis_look_mapping *l){
   for(i=0;i<vi->channels;i++){
     ogg_int32_t *pcm=vb->pcm[i];
     if(nonzero[i])
-      _vorbis_apply_window(pcm,b->window,ci->blocksizes,vb->lW,vb->W,vb->nW);
+      _vorbis_apply_window(pcm, (const void **)b->window, ci->blocksizes, vb->lW, vb->W, vb->nW);
     else
       for(j=0;j<n;j++)
 	pcm[j]=0;

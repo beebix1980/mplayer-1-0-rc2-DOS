@@ -33,8 +33,8 @@ improvements that may be of general interest.
 #include "xa_gsm_int.h"
 
 //void XA_MSGSM_Decoder();
-static void GSM_Decode();
-static void Gsm_RPE_Decoding();
+static void GSM_Decode(XA_GSM_STATE *S, word *LARcr, word *Ncr, word *bcr, word *Mcr, word *xmaxcr, word *xMcr, word *s);
+static void Gsm_RPE_Decoding(XA_GSM_STATE * S, word xmaxcr, word Mcr, word * xMcr, word * erp);
 
 //static short gsm_buf[320];
 static XA_GSM_STATE gsm_state;
@@ -217,13 +217,7 @@ word            * mant_out;    /* OUT  */
         *mant_out = mant;
 }
 
-static void Gsm_RPE_Decoding (S, xmaxcr, Mcr, xMcr, erp)
-XA_GSM_STATE        * S;
-word            xmaxcr;
-word            Mcr;
-word            * xMcr;  /* [0..12], 3 bits             IN      */
-word            * erp;   /* [0..39]                     OUT     */
-
+static void Gsm_RPE_Decoding (XA_GSM_STATE * S, word xmaxcr, word Mcr, word * xMcr, word * erp)
 {
         word    exp, mant;
         word    xMp[ 13 ];
@@ -550,15 +544,7 @@ word    * s;            /* signal   s [0..159]            OUT  */
 
 
 
-static void GSM_Decode(S,LARcr, Ncr,bcr,Mcr,xmaxcr,xMcr,s)
-XA_GSM_STATE	*S;
-word		*LARcr;		/* [0..7]		IN	*/
-word		*Ncr;		/* [0..3] 		IN 	*/
-word		*bcr;		/* [0..3]		IN	*/
-word		*Mcr;		/* [0..3] 		IN 	*/
-word		*xmaxcr;	/* [0..3]		IN 	*/
-word		*xMcr;		/* [0..13*4]		IN	*/
-word		*s;		/* [0..159]		OUT 	*/
+static void GSM_Decode(XA_GSM_STATE *S, word *LARcr, word *Ncr, word *bcr, word *Mcr, word *xmaxcr, word *xMcr, word *s)
 {
   int		j, k;
   word		erp[40], wt[160];

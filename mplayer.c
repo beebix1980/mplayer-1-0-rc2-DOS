@@ -38,6 +38,7 @@
 
 #if defined(__DJGPP__) && defined(HAVE_VESA)
 #include <sys/nearptr.h>
+unsigned int _stklen = 2097152; // 2MB stack size for FAAD2 decoder stability under DOS
 #include <crt0.h>
 #endif
 
@@ -2309,6 +2310,19 @@ int gui_no_filename=0;
     return -1;
 #endif
 
+#if defined(__DJGPP__)
+  // Mask all FPU exceptions (0x037F) and initialize the FPU to prevent DPMI hardware exception crashes (IRQ 13)
+  {
+    unsigned short cw = 0x037F;
+    __asm__ __volatile__(
+      "fninit\n\t"
+      "fldcw %0\n\t"
+      :
+      : "m" (cw)
+    );
+  }
+#endif
+
   srand((int) time(NULL)); 
 
   InitTimer();
@@ -2662,8 +2676,9 @@ current_module = NULL;
   signal(SIGQUIT,exit_sighandler); // Quit from keyboard
   signal(SIGPIPE,exit_sighandler); // Some window managers cause this
 #ifdef ENABLE_SIGHANDLER
-  // fatal errors:
+#ifdef SIGBUS
   signal(SIGBUS,exit_sighandler);  // bus error
+#endif
   signal(SIGSEGV,exit_sighandler); // segfault
   signal(SIGILL,exit_sighandler);  // illegal instruction
   signal(SIGFPE,exit_sighandler);  // floating point exc.

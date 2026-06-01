@@ -1861,7 +1861,7 @@ static void compute_imdct(MPADecodeContext *s,
             win1 = mdct_win[g->block_type];
         /* select frequency inversion */
         win = win1 + ((4 * 36) & -(j & 1));
-        imdct36(out_ptr, buf, ptr, win);
+        imdct36((int *)out_ptr, (int *)buf, (int *)ptr, (int *)win);
         out_ptr += 18*SBLIMIT;
         ptr += 18;
         buf += 18;
@@ -1875,19 +1875,19 @@ static void compute_imdct(MPADecodeContext *s,
             *out_ptr = buf[i];
             out_ptr += SBLIMIT;
         }
-        imdct12(out2, ptr + 0);
+        imdct12((int *)out2, (int *)(ptr + 0));
         for(i=0;i<6;i++) {
             *out_ptr = MULH(out2[i], win[i]) + buf[i + 6*1];
             buf[i + 6*2] = MULH(out2[i + 6], win[i + 6]);
             out_ptr += SBLIMIT;
         }
-        imdct12(out2, ptr + 1);
+        imdct12((int *)out2, (int *)(ptr + 1));
         for(i=0;i<6;i++) {
             *out_ptr = MULH(out2[i], win[i]) + buf[i + 6*2];
             buf[i + 6*0] = MULH(out2[i + 6], win[i + 6]);
             out_ptr += SBLIMIT;
         }
-        imdct12(out2, ptr + 2);
+        imdct12((int *)out2, (int *)(ptr + 2));
         for(i=0;i<6;i++) {
             buf[i + 6*0] = MULH(out2[i], win[i]) + buf[i + 6*0];
             buf[i + 6*1] = MULH(out2[i + 6], win[i + 6]);

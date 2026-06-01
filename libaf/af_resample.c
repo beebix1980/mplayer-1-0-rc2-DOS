@@ -166,9 +166,9 @@ static int control(struct af_instance_s* af, int cmd, void* arg)
     int            i,d = 0;
     int 	   rv  = AF_OK;
 
-    // Free space for circular bufers
+    // Free space for circular buffers using the old channel count
     if(s->xq){
-      for(i=1;i<af->data->nch;i++)
+      for(i=0;i<af->data->nch;i++)
 	if(s->xq[i])
 	  free(s->xq[i]);
       free(s->xq);
@@ -296,9 +296,25 @@ static int control(struct af_instance_s* af, int cmd, void* arg)
 // Deallocate memory 
 static void uninit(struct af_instance_s* af)
 {
-  if(af->data)
+  if(af->data){
     free(af->data->audio);
   free(af->data);
+}
+  if(af->setup){
+    af_resample_t* s = (af_resample_t*)af->setup;
+    if(s->xq){
+      int i;
+      for(i=0; i<af->data->nch; i++){
+        if(s->xq[i])
+          free(s->xq[i]);
+      }
+      free(s->xq);
+    }
+    if(s->w)
+      free(s->w);
+    free(s);
+    af->setup = NULL;
+  }
 }
 
 // Filter data through filter
@@ -308,6 +324,19 @@ static af_data_t* play(struct af_instance_s* af, af_data_t* data)
   af_data_t*     c   = data;	 // Current working data
   af_data_t*     l   = af->data; // Local data
   af_resample_t* s   = (af_resample_t*)af->setup;
+
+#if defined(__DJGPP__)
+  // Reset FPU and mask exceptions before FPU-intensive resampling
+  {
+    unsigned short cw = 0x037F;
+    __asm__ __volatile__(
+      "fninit\n\t"
+      "fldcw %0\n\t"
+      :
+      : "m" (cw)
+    );
+  }
+#endif
 
   if(AF_OK != RESIZE_LOCAL_BUFFER(af,data))
     return NULL;

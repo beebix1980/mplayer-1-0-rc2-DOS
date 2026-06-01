@@ -1,27 +1,25 @@
 .section .data
-.globl caller_return
-caller_return:
+.globl _caller_return
+_caller_return:
 	.long 0
-.globl report_entry
-report_entry:
-	.long null_call
-.globl report_ret
-report_ret:	
-	.long null_call
-.global wrapper_target
-wrapper_target:	
-	.long null_call
+.globl _report_entry
+_report_entry:
+	.long _null_call
+.globl _report_ret
+_report_ret:	
+	.long _null_call
+.global _wrapper_target
+_wrapper_target:	
+	.long _null_call
 
 .section .text
-.globl null_call
-	.type null_call, @function
+.globl _null_call
 	.balign 16,0x90
-null_call:
+_null_call:
 	ret
-.globl wrapper
-	.type wrapper, @function
+.globl _wrapper
 	.balign 16,0x90
-wrapper:
+_wrapper:
 	pusha			# store registers (EAX, ECX, EDX, EBX, ESP, EBP, ESI, EDI) 
 	pushf			# store flags
 	
@@ -39,7 +37,7 @@ wrapper:
 	push %eax
 	push %edx
 	
-	call *report_entry	# report entry
+	call *_report_entry	# report entry
 	
 	test %eax, %eax
 	jnz .Ldone
@@ -48,14 +46,14 @@ wrapper:
 	popf			# restore flags
 	popa			# restore registers
 	
-	popl caller_return	# switch return addresses
+	popl _caller_return	# switch return addresses
 	pushl $.Lwrapper_return 
 	
-	jmp *wrapper_target	# wrapper_target should return at .Lwrapper_return
+	jmp *_wrapper_target	# wrapper_target should return at .Lwrapper_return
 
 	.balign 16, 0x90
 .Lwrapper_return:	
-	pushl caller_return	# restore the original return address
+	pushl _caller_return	# restore the original return address
 	pusha			# more for reference sake here
 	pushf
 	
@@ -73,11 +71,10 @@ wrapper:
 	push %eax
 	push %edx
 
-	call *report_ret	# report the return information (same args)
+	call *_report_ret	# report the return information (same args)
 .Ldone:	
 
 	leave
 	popf
 	popa
 	ret
-	

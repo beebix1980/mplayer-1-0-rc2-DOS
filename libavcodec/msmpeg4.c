@@ -612,7 +612,7 @@ static inline int msmpeg4v1_pred_dc(MpegEncContext * s, int n,
         i= n-3;
     }
 
-    *dc_val_ptr= &s->last_dc[i];
+    *dc_val_ptr= (int32_t *)&s->last_dc[i];
     return s->last_dc[i];
 }
 

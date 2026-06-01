@@ -2954,12 +2954,21 @@ echores "$_fast_inttypes"
 
 echocheck "word size"
 _mp_wordsize="#undef MP_WORDSIZE"
+if test "$_cross_compile" = yes ; then
+  _wordsize=32
+  cat > $TMPC << EOF
+int main(void) { int arr[sizeof(size_t) == 8 ? 1 : -1]; return 0; }
+EOF
+  cc_check && _wordsize=64
+else
 cat > $TMPC << EOF
 #include <stdio.h>
 #include <sys/types.h>
 int main(void) { printf("%d\n", sizeof(size_t)*8); return 0; }
 EOF
-cc_check && _wordsize=`$TMPEXE` && _mp_wordsize="#define MP_WORDSIZE $_wordsize"
+  cc_check && _wordsize=`$TMPEXE`
+fi
+_mp_wordsize="#define MP_WORDSIZE $_wordsize"
 echores "$_wordsize"
 
 
@@ -4748,19 +4757,11 @@ if test "$_vesa" = auto ; then
 int main(void) { vbeVersion(); return 0; }
 EOF
   _vesa=no
-  if test "$system_name" = DJGPP ; then
-    cc_check -lvbe && _vesa=yes
-  else
-    cc_check -lvbe -llrmi && _vesa=yes
-  fi
+  cc_check && _vesa=yes
 fi
 if test "$_vesa" = yes ; then
   _def_vesa='#define HAVE_VESA 1'
-  if test "$system_name" = DJGPP ; then
-    _libs_mplayer="$_libs_mplayer -lvbe"
-  else
-    _libs_mplayer="$_libs_mplayer -lvbe -llrmi"
-  fi
+
   _vosrc="$_vosrc vo_vesa.c vesa_lvo.c gtf.c"
   _vomodules="vesa $_vomodules"
 else

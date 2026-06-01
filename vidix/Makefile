@@ -49,5 +49,7 @@ rage128_vid.o: radeon_vid.c
 pci_names.c pci_dev_ids.c: pci.db
 	LC_ALL=C awk -f pci_db2c.awk $<
 
+$(OBJS_MPLAYER): pci_names.c
+
 clean::
 	rm -f pci_*.c pci_*.h

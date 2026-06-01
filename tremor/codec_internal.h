@@ -87,4 +87,7 @@ typedef struct codec_setup_info {
   int    coupling_passes;
 } codec_setup_info;
 
+void *_vorbis_block_alloc(struct vorbis_block *vb,long bytes);
+void _vorbis_block_ripcord(struct vorbis_block *vb);
+
 #endif

@@ -68,11 +68,22 @@ for DLL to know too much about its environment.
 #include <kstat.h>
 #endif
 
+#ifndef __DJGPP__
 #include <sys/mman.h>
+#else
+#define PROT_READ 1
+#define PROT_WRITE 2
+#define PROT_EXEC 4
+#define MAP_PRIVATE 1
+#define MAP_SHARED 2
+#define MAP_FIXED 4
+static inline void* mmap(void* addr, size_t len, int prot, int flags, int fd, off_t offset) { return (void*)-1; }
+static inline int munmap(void* addr, size_t len) { return -1; }
+#endif
 #include "osdep/mmap_anon.h"
 
-#if HAVE_VSSCANF
-int vsscanf( const char *str, const char *format, va_list ap);
+#if HAVE_VSSCANF || defined(__DJGPP__)
+// system has vsscanf or we are using DJGPP
 #else
 /* system has no vsscanf.  try to provide one */
 static int vsscanf( const char *str, const char *format, va_list ap)
@@ -1439,8 +1450,8 @@ static void WINAPI expDeleteCriticalSection(CRITICAL_SECTION *c)
 }
 static int WINAPI expGetCurrentThreadId()
 {
-    dbgprintf("GetCurrentThreadId() => %d\n", pthread_self());
-    return pthread_self();
+    dbgprintf("GetCurrentThreadId() => %ld\n", (unsigned long)pthread_self());
+    return (int)(unsigned long)pthread_self();
 }
 static int WINAPI expGetCurrentProcess()
 {
@@ -2525,7 +2536,7 @@ static int WINAPI expMonitorFromPoint(void *p, int flags)
 }
 
 static int WINAPI expEnumDisplayMonitors(void *dc, RECT *r, 
-    int WINAPI (*callback_proc)(), void *callback_param)
+    int WINAPI (*callback_proc)(int, void*, void*, void*), void *callback_param)
 {
     dbgprintf("EnumDisplayMonitors(0x%x, 0x%x, 0x%x, 0x%x) => ?\n",
 	dc, r, callback_proc, callback_param);
@@ -2625,7 +2636,7 @@ static int WINAPI expCreateRectRgn(int x, int y, int width, int height)
     return 0;
 }
 
-static int WINAPI expEnumWindows(int (*callback_func)(), void *callback_param)
+static int WINAPI expEnumWindows(int (*callback_func)(int, void*), void *callback_param)
 {
     int i, i2;
     dbgprintf("EnumWindows(0x%x, 0x%x) => 1\n", callback_func, callback_param);
@@ -2636,7 +2647,7 @@ static int WINAPI expEnumWindows(int (*callback_func)(), void *callback_param)
 
 static int WINAPI expGetWindowThreadProcessId(HWND win, int *pid_data)
 {
-    int tid = pthread_self();
+    int tid = (int)(unsigned long)pthread_self();
     dbgprintf("GetWindowThreadProcessId(0x%x, 0x%x) => %d\n",
 	win, pid_data, tid);
     if (pid_data)

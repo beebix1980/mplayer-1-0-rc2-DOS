@@ -52,6 +52,23 @@
 #include "sysdep/libdha_win32.c"
 #elif defined (__EMX__)
 #include "sysdep/libdha_os2.c"
+#elif defined (__DJGPP__)
+
+#include <sys/nearptr.h>
+
+#ifndef MAP_FAILED
+#define MAP_FAILED ((void *)-1)
+#endif
+
+void *map_phys_mem(unsigned long base, unsigned long size)
+{
+  return (void *)(base + __djgpp_conventional_base);
+}
+
+void unmap_phys_mem(void *ptr, unsigned long size)
+{
+}
+
 #else
 
 #if defined(SVR4) || defined(SCO325)

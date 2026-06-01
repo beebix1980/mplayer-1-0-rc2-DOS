@@ -35,6 +35,11 @@
 #ifndef VIDIX_H
 #define VIDIX_H
 
+#include <errno.h>
+#ifndef ENOTSUP
+#define ENOTSUP 134
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif

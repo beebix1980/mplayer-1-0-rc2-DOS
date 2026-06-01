@@ -22,7 +22,10 @@
 #include <math.h>
 #include <inttypes.h>
 
-#include "config.h"
+#include "img_format.h"
+#include "mp_image.h"
+#include "vf.h"
+#include "libvo/fastmemcpy.h"
 
 #include "mp_msg.h"
 #include "cpudetect.h"
@@ -49,11 +52,6 @@ double ff_eval(char *s, double *const_value, const char **const_name,
 #ifdef HAVE_MALLOC_H
 #include <malloc.h>
 #endif
-
-#include "img_format.h"
-#include "mp_image.h"
-#include "vf.h"
-#include "libvo/fastmemcpy.h"
 
 
 struct vf_priv_s {

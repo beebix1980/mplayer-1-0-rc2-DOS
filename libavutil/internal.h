@@ -278,37 +278,6 @@ static av_always_inline long int lrintf(float x)
 }
 #endif /* HAVE_LRINTF */
 
-#ifdef __DJGPP__
-static av_always_inline long int lrint(double x)
-{
-    int32_t i;
-    asm volatile(
-        "fistpl %0\n\t"
-        : "=m" (i) : "t" (x) : "st"
-    );
-    return i;
-}
 
-static av_always_inline long long llrint(double x)
-{
-    int64_t i;
-    asm volatile(
-        "fistpll %0\n\t"
-        : "=m" (i) : "t" (x) : "st"
-    );
-    return i;
-}
-
-static av_always_inline float roundf(float x)
-{
-   return (x + (x < 0 ? -0.5 : 0.5));
-}
-
-static av_always_inline double round(double v)
-{
-   return floor(v + 0.5);
-}
-
-#endif /* __DJGPP__ */
 
 #endif /* INTERNAL_H */

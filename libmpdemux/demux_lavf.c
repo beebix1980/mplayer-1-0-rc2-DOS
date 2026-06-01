@@ -190,14 +190,24 @@ static int lavf_check_file(demuxer_t *demuxer){
     uint8_t buf[PROBE_BUF_SIZE];
     lavf_priv_t *priv;
     
+    fprintf(stderr, "DEBUG lavf_check_file: enter\n");
+
     if(!demuxer->priv) 
         demuxer->priv=calloc(sizeof(lavf_priv_t),1);
     priv= demuxer->priv;
+    if(!priv) {
+        fprintf(stderr, "DEBUG lavf_check_file: calloc failed!\n");
+        return 0;
+    }
 
+    fprintf(stderr, "DEBUG lavf_check_file: before av_register_all()\n");
     av_register_all();
+    fprintf(stderr, "DEBUG lavf_check_file: after av_register_all()\n");
 
+    fprintf(stderr, "DEBUG lavf_check_file: before stream_read()\n");
     if(stream_read(demuxer->stream, buf, PROBE_BUF_SIZE)!=PROBE_BUF_SIZE)
         return 0;
+    fprintf(stderr, "DEBUG lavf_check_file: after stream_read()\n");
     avpd.filename= demuxer->stream->url;
     avpd.buf= buf;
     avpd.buf_size= PROBE_BUF_SIZE;
@@ -215,13 +225,16 @@ static int lavf_check_file(demuxer_t *demuxer){
         mp_msg(MSGT_DEMUX,MSGL_INFO,"Forced lavf %s demuxer\n", priv->avif->long_name);
         return DEMUXER_TYPE_LAVF;
     }
+    fprintf(stderr, "DEBUG lavf_check_file: before av_probe_input_format()\n");
     priv->avif= av_probe_input_format(&avpd, 1);
+    fprintf(stderr, "DEBUG lavf_check_file: after av_probe_input_format()\n");
     if(!priv->avif){
         mp_msg(MSGT_HEADER,MSGL_V,"LAVF_check: no clue about this gibberish!\n");
         return 0;
     }else
         mp_msg(MSGT_HEADER,MSGL_V,"LAVF_check: %s\n", priv->avif->long_name);
 
+    fprintf(stderr, "DEBUG lavf_check_file: exit OK\n");
     return DEMUXER_TYPE_LAVF;
 }
 
@@ -239,7 +252,7 @@ static const char *preferred_list[] = {
 
 static int lavf_check_preferred_file(demuxer_t *demuxer){
     if (lavf_check_file(demuxer)) {
-        char **p = preferred_list;
+        const char **p = preferred_list;
         lavf_priv_t *priv = demuxer->priv;
         while (*p) {
             if (strcmp(*p, priv->avif->name) == 0)
@@ -258,13 +271,18 @@ static demuxer_t* demux_open_lavf(demuxer_t *demuxer){
     int i,g;
     char mp_filename[256]="mp:";
 
+    fprintf(stderr, "DEBUG demux_open_lavf: enter\n");
+
     memset(&ap, 0, sizeof(AVFormatParameters));
 
     stream_seek(demuxer->stream, 0);
 
+    fprintf(stderr, "DEBUG demux_open_lavf: before register_protocol\n");
     register_protocol(&mp_protocol);
+    fprintf(stderr, "DEBUG demux_open_lavf: after register_protocol\n");
 
     avfc = av_alloc_format_context();
+    fprintf(stderr, "DEBUG demux_open_lavf: av_alloc_format_context returned %p\n", (void*)avfc);
 
     if (correct_pts)
         avfc->flags |= AVFMT_FLAG_GENPTS;
@@ -286,21 +304,27 @@ static demuxer_t* demux_open_lavf(demuxer_t *demuxer){
     else
         strncpy(mp_filename + 3, "foobar.dummy", sizeof(mp_filename)-3);
     
+    fprintf(stderr, "DEBUG demux_open_lavf: before url_fopen\n");
     url_fopen(&priv->pb, mp_filename, URL_RDONLY);
+    fprintf(stderr, "DEBUG demux_open_lavf: after url_fopen\n");
     
     ((URLContext*)(priv->pb.opaque))->priv_data= demuxer->stream;
         
+    fprintf(stderr, "DEBUG demux_open_lavf: before av_open_input_stream\n");
     if(av_open_input_stream(&avfc, &priv->pb, mp_filename, priv->avif, &ap)<0){
         mp_msg(MSGT_HEADER,MSGL_ERR,"LAVF_header: av_open_input_stream() failed\n");
         return NULL;
     }
+    fprintf(stderr, "DEBUG demux_open_lavf: after av_open_input_stream\n");
 
     priv->avfc= avfc;
 
+    fprintf(stderr, "DEBUG demux_open_lavf: before av_find_stream_info\n");
     if(av_find_stream_info(avfc) < 0){
         mp_msg(MSGT_HEADER,MSGL_ERR,"LAVF_header: av_find_stream_info() failed\n");
         return NULL;
     }
+    fprintf(stderr, "DEBUG demux_open_lavf: after av_find_stream_info\n");
 
     if(avfc->title    [0]) demux_info_add(demuxer, "name"     , avfc->title    );
     if(avfc->author   [0]) demux_info_add(demuxer, "author"   , avfc->author   );

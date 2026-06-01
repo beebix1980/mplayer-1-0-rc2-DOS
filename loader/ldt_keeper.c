@@ -127,12 +127,14 @@ extern "C"
 #endif
 void Setup_FS_Segment(void)
 {
+#ifndef __DJGPP__
     unsigned int ldt_desc = LDT_SEL(fs_ldt);
 
     __asm__ __volatile__(
 	"movl %0,%%eax; movw %%ax, %%fs" : : "r" (ldt_desc)
 	:"eax"
     );
+#endif
 }
 
 /* we don't need this - use modify_ldt instead */
@@ -191,6 +193,9 @@ void* fs_seg=0;
 
 ldt_fs_t* Setup_LDT_Keeper(void)
 {
+#ifdef __DJGPP__
+    return NULL;
+#else
     struct modify_ldt_ldt_s array;
     int ret;
     ldt_fs_t* ldt_fs = (ldt_fs_t*) malloc(sizeof(ldt_fs_t));
@@ -278,10 +283,14 @@ ldt_fs_t* Setup_LDT_Keeper(void)
     *(void**)array.base_addr = ldt_fs->prev_struct;
 
     return ldt_fs;
+#endif
 }
 
 void Restore_LDT_Keeper(ldt_fs_t* ldt_fs)
 {
+#ifdef __DJGPP__
+    return;
+#else
     if (ldt_fs == NULL || ldt_fs->fs_seg == 0)
 	return;
     if (ldt_fs->prev_struct)
@@ -289,4 +298,5 @@ void Restore_LDT_Keeper(ldt_fs_t* ldt_fs)
     munmap((char*)ldt_fs->fs_seg, getpagesize());
     ldt_fs->fs_seg = 0;
     free(ldt_fs);
+#endif
 }

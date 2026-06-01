@@ -21,6 +21,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef __DJGPP__
+unsigned int _stklen = 2097152; // 2MB stack size for FAAD2 decoder stability under DOS
+#endif
 #include <string.h>
 #include <signal.h>
 #include "config.h"
@@ -299,9 +302,7 @@ static int edl_seek(edl_record_ptr next_edl_record, demuxer_t* demuxer, demux_st
 
 #include "cfg-mencoder.h"
 
-#ifdef USE_DVDREAD
 #include "spudec.h"
-#endif
 #include "vobsub.h"
 
 #include "libao2/audio_out.h"

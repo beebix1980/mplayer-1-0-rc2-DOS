@@ -121,7 +121,7 @@ static int allocStuff(FilterParam *f, int width, int height){
 	vec = sws_getGaussianVec(f->radius, f->quality);
 	f->distWidth= vec->length;
 	f->distStride= (vec->length+7)&~7;
-	f->distCoeff= (int32_t*)memalign(8, f->distWidth*f->distStride*sizeof(int32_t));
+	f->distCoeff= (int*)memalign(8, f->distWidth*f->distStride*sizeof(int32_t));
 
 	for(y=0; y<vec->length; y++){
 		for(x=0; x<vec->length; x++){

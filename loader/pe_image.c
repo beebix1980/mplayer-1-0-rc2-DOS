@@ -63,6 +63,20 @@
 #include "ext.h"
 #include "win32.h"
 
+#ifndef PROT_READ
+#define PROT_READ 1
+#define PROT_WRITE 2
+#define PROT_EXEC 4
+#endif
+#ifndef MAP_PRIVATE
+#define MAP_PRIVATE 1
+#define MAP_SHARED 2
+#define MAP_FIXED 4
+#endif
+typedef unsigned short u_short;
+typedef unsigned long u_long;
+typedef unsigned char u_char;
+
 #define RVA(x) ((void *)((char *)load_addr+(unsigned int)(x)))
 
 #define AdjustPtr(ptr,delta) ((char *)(ptr) + (delta))

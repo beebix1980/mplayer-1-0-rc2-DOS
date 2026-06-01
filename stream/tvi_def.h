@@ -14,14 +14,14 @@ int teletext_control(void* p, int cmd, void *arg);
 
 static tvi_functions_t functions =
 {
-    init,
-    uninit,
-    control,
-    start,
-    grab_video_frame,
-    get_video_framesize,
-    grab_audio_frame,
-    get_audio_framesize
+    (int (*)(void *))init,
+    (int (*)(void *))uninit,
+    (int (*)(void *, int, void *))control,
+    (int (*)(void *))start,
+    (double (*)(void *, char *, int))grab_video_frame,
+    (int (*)(void *))get_video_framesize,
+    (double (*)(void *, char *, int))grab_audio_frame,
+    (int (*)(void *))get_audio_framesize
 };
 
 static tvi_handle_t *new_handle(void)

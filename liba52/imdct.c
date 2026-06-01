@@ -118,7 +118,7 @@ static complex_t __attribute__((aligned(16))) * w[7] = {w_1, w_2, w_4, w_8, w_16
 static sample_t __attribute__((aligned(16))) xcos1[128];
 static sample_t __attribute__((aligned(16))) xsin1[128];
 
-#if defined(ARCH_X86) || defined(ARCH_X86_64)
+#if (defined(ARCH_X86) || defined(ARCH_X86_64)) && !defined(__DJGPP__)
 // NOTE: SSE needs 16byte alignment or it will segfault 
 // 
 static float __attribute__((aligned(16))) sseSinCos1c[256];
@@ -723,7 +723,7 @@ imdct_do_512_altivec(sample_t data[],sample_t delay[], sample_t bias)
 
 // Stuff below this line is borrowed from libac3
 #include "srfftp.h"
-#if defined(ARCH_X86) || defined(ARCH_X86_64)
+#if (defined(ARCH_X86) || defined(ARCH_X86_64)) && !defined(__DJGPP__)
 #ifndef HAVE_3DNOW
 #define HAVE_3DNOW 1
 #endif
@@ -1215,7 +1215,7 @@ void a52_imdct_init (uint32_t mm_accel)
 	    w[i][k].imag = sin (-M_PI * k / j);
 	}
     }
-#if defined(ARCH_X86) || defined(ARCH_X86_64)
+#if (defined(ARCH_X86) || defined(ARCH_X86_64)) && !defined(__DJGPP__)
 	for (i = 0; i < 128; i++) {
 	    sseSinCos1c[2*i+0]= xcos1[i];
 	    sseSinCos1c[2*i+1]= -xcos1[i];
@@ -1269,7 +1269,7 @@ void a52_imdct_init (uint32_t mm_accel)
 	ifft128 = ifft128_c;
 	ifft64 = ifft64_c;
 
-#if defined(ARCH_X86) || defined(ARCH_X86_64)
+#if (defined(ARCH_X86) || defined(ARCH_X86_64)) && !defined(__DJGPP__)
 	if(mm_accel & MM_ACCEL_X86_SSE)
 	{
 	  fprintf (stderr, "Using SSE optimized IMDCT transform\n");

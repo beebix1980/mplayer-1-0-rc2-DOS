@@ -253,7 +253,7 @@ add_cluster_position (mkv_demuxer_t *mkv_d, uint64_t position)
     if (mkv_d->cluster_positions[i] == position)
       return;
 
-  grow_array(&mkv_d->cluster_positions, mkv_d->num_cluster_pos,
+  grow_array((void **)&mkv_d->cluster_positions, mkv_d->num_cluster_pos,
              sizeof(uint64_t));
   mkv_d->cluster_positions[mkv_d->num_cluster_pos++] = position;
 }
@@ -1278,7 +1278,7 @@ demux_mkv_read_cues (demuxer_t *demuxer)
       if (time != EBML_UINT_INVALID && track != EBML_UINT_INVALID
           && pos != EBML_UINT_INVALID)
         {
-          grow_array(&mkv_d->indexes, mkv_d->num_indexes, sizeof(mkv_index_t));
+          grow_array((void **)&mkv_d->indexes, mkv_d->num_indexes, sizeof(mkv_index_t));
           mkv_d->indexes[mkv_d->num_indexes].tnum = track;
           mkv_d->indexes[mkv_d->num_indexes].timecode = time;
           mkv_d->indexes[mkv_d->num_indexes].filepos =mkv_d->segment_start+pos;
@@ -1466,8 +1466,8 @@ demux_mkv_read_attachments (demuxer_t *demuxer)
 
               mp_msg (MSGT_DEMUX, MSGL_V, "[mkv] | + an attachment...\n");
 
-              grow_array(&mkv_d->attachments, mkv_d->num_attachments,
-                         sizeof(*mkv_d->attachments));
+              grow_array((void **)&mkv_d->attachments, mkv_d->num_attachments,
+                         sizeof(mkv_attachment_t));
 
               while (len > 0)
                 {
@@ -2228,7 +2228,8 @@ demux_mkv_parse_vobsub_data (demuxer_t *demuxer)
 {
   mkv_demuxer_t *mkv_d = (mkv_demuxer_t *) demuxer->priv;
   mkv_track_t *track;
-  int i, m, size;
+  int i, m;
+  uint32_t size;
   uint8_t *buffer;
 
   for (i = 0; i < mkv_d->num_tracks; i++)
@@ -2861,7 +2862,7 @@ handle_realvideo (demuxer_t *demuxer, mkv_track_t *track, uint8_t *buffer,
   memcpy (dp->buffer + REALHEADER_SIZE + isize, buffer, (chunks+1)*8);
 #endif
 
-  hdr = dp->buffer;
+  hdr = (uint32_t *)dp->buffer;
   *hdr++ = chunks;                 // number of chunks
   *hdr++ = timestamp;              // timestamp from packet header
   *hdr++ = isize;                  // length of actual data
@@ -3198,7 +3199,8 @@ handle_block (demuxer_t *demuxer, uint8_t *block, uint64_t length,
                                   block_bref, block_fref);
           else
             {
-              int modified, size = lace_size[i];
+              int modified;
+              uint32_t size = lace_size[i];
               demux_packet_t *dp;
               uint8_t *buffer;
               modified = demux_mkv_decode (track, block, &buffer, &size, 1);

@@ -57,8 +57,10 @@ void *av_malloc(unsigned int size)
     diff= ((-(long)ptr - 1)&15) + 1;
     ptr += diff;
     ((char*)ptr)[-1]= diff;
-#elif defined (HAVE_MEMALIGN)
+#elif defined (HAVE_MEMALIGN) && !defined(__DJGPP__)
     ptr = memalign(16,size);
+#elif defined(__DJGPP__)
+    ptr = malloc(size);
     /* Why 64?
        Indeed, we should align it:
          on 4 for 386

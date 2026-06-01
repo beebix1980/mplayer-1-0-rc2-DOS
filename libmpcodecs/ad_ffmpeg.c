@@ -90,6 +90,19 @@ static int init(sh_audio_t *sh_audio)
     }
 
     /* open it */
+#if defined(__DJGPP__)
+    // Reset FPU and mask all exceptions before avcodec_open() to prevent
+    // DPMI hardware exception (IRQ 13 / Signal 291) crashes during codec init
+    {
+        unsigned short cw = 0x037F;
+        __asm__ __volatile__(
+          "fninit\n\t"
+          "fldcw %0\n\t"
+          :
+          : "m" (cw)
+        );
+    }
+#endif
     if (avcodec_open(lavc_context, lavc_codec) < 0) {
         mp_msg(MSGT_DECAUDIO,MSGL_ERR, MSGTR_CantOpenCodec);
         return 0;
@@ -109,6 +122,18 @@ static int init(sh_audio_t *sh_audio)
    }
 
    // Decode at least 1 byte:  (to get header filled)
+#if defined(__DJGPP__)
+    // Reset FPU again before first decode call
+    {
+        unsigned short cw = 0x037F;
+        __asm__ __volatile__(
+          "fninit\n\t"
+          "fldcw %0\n\t"
+          :
+          : "m" (cw)
+        );
+    }
+#endif
    x=decode_audio(sh_audio,sh_audio->a_buffer,1,sh_audio->a_buffer_size);
    if(x>0) sh_audio->a_buffer_len=x;
 

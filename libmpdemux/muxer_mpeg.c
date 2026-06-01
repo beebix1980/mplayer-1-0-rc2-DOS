@@ -2264,7 +2264,8 @@ static void mpegfile_write_chunk(muxer_stream_t *s,size_t len,unsigned int flags
   muxer_priv_t *priv = (muxer_priv_t *)muxer->priv;
   muxer_headers_t *spriv = (muxer_headers_t*) s->priv;
   float fps;
-  uint32_t stream_format, nf;
+  uint32_t stream_format;
+  unsigned int nf;
 
   if(s->buffer == NULL)
   	return;
@@ -2366,7 +2367,8 @@ static void mpegfile_write_chunk(muxer_stream_t *s,size_t len,unsigned int flags
 
 static void mpegfile_write_index(muxer_t *muxer)
 {
-	int i, nf;
+	int i;
+	unsigned int nf;
 	double fake_timer;
 	muxer_priv_t *priv = (muxer_priv_t *) muxer->priv;
 

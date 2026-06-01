@@ -100,7 +100,8 @@ struct win_frame
 static void (*cpy_blk_fnc)(unsigned long,uint8_t *,unsigned long) = NULL;
 
 static uint32_t srcW=0,srcH=0,srcBpp,srcFourcc; /* source image description */
-static uint32_t dstBpp,dstW, dstH,dstFourcc; /* destinition image description */
+static uint32_t dstW, dstH, dstFourcc; /* destinition image description */
+uint32_t dstBpp;
 
 static struct SwsContext * sws = NULL;
 
@@ -109,8 +110,9 @@ static unsigned init_mode=0; /* mode before run of mplayer */
 static void *init_state = NULL; /* state before run of mplayer */
 static struct win_frame win; /* real-mode window to video memory */
 static uint8_t *dga_buffer = NULL; /* for yuv2rgb and sw_scaling */
+static void *dga_buffer_raw = NULL;
 static unsigned video_mode; /* selected video mode for playback */
-static struct VesaModeInfoBlock video_mode_info;
+struct VesaModeInfoBlock video_mode_info;
 static int flip_trigger = 0;
 static void (*draw_alpha_fnc)(int x0,int y0, int w,int h, unsigned char* src, unsigned char *srca, int stride);
 
@@ -168,12 +170,14 @@ static void vesa_term( void )
 #ifdef CONFIG_VIDIX
   else if(vidix_opened) { vidix_term();  vidix_opened = 0; }
 #endif
+  // VESA state restore is notoriously broken on many real BIOSes and causes hangs.
+  // We just restore the video mode, which is enough to get back to text mode safely.
+  // if(init_state) if((err=vbeRestoreState(init_state)) != VBE_OK) PRINT_VBE_ERR("vbeRestoreState",err);
+  init_state=NULL;
   if(init_mode) if((err=vbeSetMode(init_mode,NULL)) != VBE_OK) PRINT_VBE_ERR("vbeSetMode",err);
   init_mode=0;
-  if(init_state) if((err=vbeRestoreState(init_state)) != VBE_OK) PRINT_VBE_ERR("vbeRestoreState",err);
-  init_state=NULL;
   if(HAS_DGA()) vbeUnmapVideoBuffer((unsigned long)win.ptr,win.high);
-  if(dga_buffer && !HAS_DGA()) free(dga_buffer);
+  if(dga_buffer_raw) { free(dga_buffer_raw); dga_buffer_raw = NULL; dga_buffer = NULL; }
   vbeDestroy();
   if(sws) sws_freeContext(sws);
   sws=NULL;
@@ -283,7 +287,7 @@ static void __vbeCopyData(uint8_t *image)
 /* is called for yuv only */
 static int draw_slice(uint8_t *image[], int stride[], int w,int h,int x,int y)
 {
-    int dstride=HAS_DGA()?video_mode_info.XResolution:dstW;
+    int dstride=dstW;
     uint8_t *dst[3]= {dga_buffer, NULL, NULL};
     int dstStride[3];
     if( mp_msg_test(MSGT_VO,MSGL_DBG3) )
@@ -291,7 +295,6 @@ static int draw_slice(uint8_t *image[], int stride[], int w,int h,int x,int y)
     dstStride[0]=dstride*((dstBpp+7)/8);
     dstStride[1]=
     dstStride[2]=dstStride[0]>>1;
-    if(HAS_DGA()) dst[0] += y_offset*SCREEN_LINE_SIZE(PIXEL_SIZE())+x_offset*PIXEL_SIZE();
     sws_scale_ordered(sws,image,stride,y,h,dst,dstStride);
     flip_trigger = 1;
     return 0;
@@ -302,53 +305,25 @@ static int draw_slice(uint8_t *image[], int stride[], int w,int h,int x,int y)
 
 static void draw_alpha_32(int x0,int y0, int w,int h, unsigned char* src, unsigned char *srca, int stride)
 {
-   int dstride=HAS_DGA()?video_mode_info.XResolution:dstW;
-#ifndef OSD_OUTSIDE_MOVIE
-   if(HAS_DGA())
-   {
-	x0 += x_offset;
-	y0 += y_offset;
-   }
-#endif
+   int dstride=dstW;
    vo_draw_alpha_rgb32(w,h,src,srca,stride,dga_buffer+4*(y0*dstride+x0),4*dstride);
 }
 
 static void draw_alpha_24(int x0,int y0, int w,int h, unsigned char* src, unsigned char *srca, int stride)
 {
-   int dstride=HAS_DGA()?video_mode_info.XResolution:dstW;
-#ifndef OSD_OUTSIDE_MOVIE
-   if(HAS_DGA())
-   {
-	x0 += x_offset;
-	y0 += y_offset;
-   }
-#endif
+   int dstride=dstW;
    vo_draw_alpha_rgb24(w,h,src,srca,stride,dga_buffer+3*(y0*dstride+x0),3*dstride);
 }
 
 static void draw_alpha_16(int x0,int y0, int w,int h, unsigned char* src, unsigned char *srca, int stride)
 {
-   int dstride=HAS_DGA()?video_mode_info.XResolution:dstW;
-#ifndef OSD_OUTSIDE_MOVIE
-   if(HAS_DGA())
-   {
-	x0 += x_offset;
-	y0 += y_offset;
-   }
-#endif
+   int dstride=dstW;
    vo_draw_alpha_rgb16(w,h,src,srca,stride,dga_buffer+2*(y0*dstride+x0),2*dstride);
 }
 
 static void draw_alpha_15(int x0,int y0, int w,int h, unsigned char* src, unsigned char *srca, int stride)
 {
-   int dstride=HAS_DGA()?video_mode_info.XResolution:dstW;
-#ifndef OSD_OUTSIDE_MOVIE
-   if(HAS_DGA())
-   {
-	x0 += x_offset;
-	y0 += y_offset;
-   }
-#endif
+   int dstride=dstW;
    vo_draw_alpha_rgb15(w,h,src,srca,stride,dga_buffer+2*(y0*dstride+x0),2*dstride);
 }
 
@@ -371,8 +346,8 @@ static void draw_osd(void)
 	mp_msg(MSGT_VO,MSGL_DBG3, "vo_vesa: draw_osd was called\n");
  {
 #ifdef OSD_OUTSIDE_MOVIE
-   w = HAS_DGA()?video_mode_info.XResolution:dstW;
-   h = HAS_DGA()?video_mode_info.YResolution:dstH;
+   w = dstW;
+   h = dstH;
 #else
    w = dstW;
    h = dstH;
@@ -387,7 +362,7 @@ static void flip_page(void)
 	mp_msg(MSGT_VO,MSGL_DBG3, "vo_vesa: flip_page was called\n");
   if(flip_trigger) 
   {
-    if(!HAS_DGA()) __vbeCopyData(dga_buffer);
+    __vbeCopyData(dga_buffer);
     flip_trigger = 0;
   }
   if(vo_doublebuffering && multi_size > 1)
@@ -401,7 +376,7 @@ static void flip_page(void)
       abort();
     }
     multi_idx = multi_idx ? 0 : 1;
-    win.ptr = dga_buffer = video_base + multi_buff[multi_idx];
+    win.ptr = video_base + multi_buff[multi_idx];
   }
 /*
   else
@@ -422,7 +397,7 @@ static int draw_frame(uint8_t *src[])
         mp_msg(MSGT_VO,MSGL_DBG3, "vo_vesa: draw_frame was called\n");
     if(sws)
     {
-	int dstride=HAS_DGA()?video_mode_info.XResolution:dstW;
+	int dstride=dstW;
 	int srcStride[1];
 	uint8_t *dst[3]= {dga_buffer, NULL, NULL};
 	int dstStride[3];
@@ -436,7 +411,6 @@ static int draw_frame(uint8_t *src[])
 	    srcStride[0] = srcW*3;
 	else
 	    srcStride[0] = srcW*2;
-	if(HAS_DGA()) dst[0] += y_offset*SCREEN_LINE_SIZE(PIXEL_SIZE())+x_offset*PIXEL_SIZE();
 	sws_scale_ordered(sws,src,srcStride,0,srcH,dst,dstStride);
 	flip_trigger=1;
     }
@@ -513,6 +487,14 @@ static void clear_screen( void )
     int x_res = video_mode_info.XResolution;
     int y_res = video_mode_info.YResolution;
     int x, y;
+
+    if(HAS_DGA()) {
+        unsigned i;
+        for(i = 0; i < multi_size; i++) {
+            memset(video_base + multi_buff[i], 0, x_res * y_res * ((dstBpp+7)/8));
+        }
+        return;
+    }
 
     for (y = 0; y < y_res; ++y)
 	for (x = 0; x < x_res; ++x)
@@ -684,7 +666,7 @@ config(uint32_t width, uint32_t height, uint32_t d_width, uint32_t d_height, uin
 	/* Find best mode here */
 	num_modes = 0;
 	mode_ptr = vib.VideoModePtr;
-	while  (mode_ptr[num_modes] != 0xffff) num_modes++;
+	while(*mode_ptr++ != 0xffff) num_modes++;
 	switch(format)
 	{
 		case IMGFMT_BGR8:
@@ -724,6 +706,7 @@ config(uint32_t width, uint32_t height, uint32_t d_width, uint32_t d_height, uin
 	{
 	  mp_msg(MSGT_VO,MSGL_V, "vo_vesa: Requested mode: %ux%u@%u (%s)\n",width,height,bpp,vo_format_name(format));
 	  mp_msg(MSGT_VO,MSGL_V, "vo_vesa: Total modes found: %u\n",num_modes);
+	  mode_ptr = vib.VideoModePtr;
 	  mp_msg(MSGT_VO,MSGL_V, "vo_vesa: Mode list:");
 	  for(i = 0;i < num_modes;i++)
 	  {
@@ -731,6 +714,7 @@ config(uint32_t width, uint32_t height, uint32_t d_width, uint32_t d_height, uin
 	  }
 	  mp_msg(MSGT_VO,MSGL_V, "\nvo_vesa: Modes in detail:\n");
 	}
+	mode_ptr = vib.VideoModePtr;
 	if(use_scaler)
 	{
 	    dstW = d_width;
@@ -779,7 +763,7 @@ config(uint32_t width, uint32_t height, uint32_t d_width, uint32_t d_height, uin
 	}
 	if(best_mode_idx != UINT_MAX)
 	{
-		video_mode = mode_ptr[best_mode_idx];
+		video_mode = vib.VideoModePtr[best_mode_idx];
 		fflush(stdout);
 		if((err=vbeGetMode(&init_mode)) != VBE_OK)
 		{
@@ -810,7 +794,7 @@ config(uint32_t width, uint32_t height, uint32_t d_width, uint32_t d_height, uin
 		        aspect_save_orig(width,height);
 			aspect_save_prescale(d_width,d_height);
 			aspect_save_screenres(video_mode_info.XResolution,video_mode_info.YResolution);
-			aspect(&dstW,&dstH,A_ZOOM);
+			aspect((int *)&dstW,(int *)&dstH,A_ZOOM);
 		      }
 		      else
 		      if(fs_mode)
@@ -904,31 +888,32 @@ config(uint32_t width, uint32_t height, uint32_t d_width, uint32_t d_height, uin
 			,x_offset,y_offset);
 		if(HAS_DGA())
 		{
-		  dga_buffer = win.ptr; /* Trickly ;) */
 		  cpy_blk_fnc = __vbeCopyBlockFast;
 		}
 		else
 		{
 		  cpy_blk_fnc = __vbeCopyBlock;
+		}
 		  if(!lvo_name
 #ifdef CONFIG_VIDIX
 		   && !vidix_name
 #endif
 		  )
 		  {
-		    if(!(dga_buffer = memalign(64,video_mode_info.XResolution*video_mode_info.YResolution*dstBpp)))
+		  dga_buffer_raw = malloc(dstW*dstH*((dstBpp+7)/8) + 64);
+		  if(!dga_buffer_raw)
 		    {
  		      mp_msg(MSGT_VO,MSGL_ERR, MSGTR_LIBVO_VESA_CantAllocateTemporaryBuffer);
 		      return -1;
 		    }
+		  dga_buffer = (void *)(((unsigned long)dga_buffer_raw + 63) & ~63);
 		    if( mp_msg_test(MSGT_VO,MSGL_V) ) {
 			mp_msg(MSGT_VO,MSGL_V, "vo_vesa: dga emulator was allocated = %p\n",dga_buffer); }
 		  }
-		}
-		if((err=vbeSaveState(&init_state)) != VBE_OK)
-		{
-			PRINT_VBE_ERR("vbeSaveState",err);
-		}
+		// if((err=vbeSaveState(&init_state)) != VBE_OK)
+		// {
+		// 	PRINT_VBE_ERR("vbeSaveState",err);
+		// }
 		
 		/* TODO: 
 		         user might pass refresh value,
@@ -936,14 +921,15 @@ config(uint32_t width, uint32_t height, uint32_t d_width, uint32_t d_height, uin
 			 for best results, I don't have a spec (RM)
 		*/
 
-		if (((int)(vib.VESAVersion >> 8) & 0xff) > 2) 
-		{
+		if (((int)(vib.VESAVersion >> 8) & 0xff) > 2) {
 		
 		    if (set_refresh(video_mode_info.XResolution,video_mode_info.YResolution,video_mode,&crtc_pass))
 		        video_mode = video_mode | 0x800;
 		
 		}
 
+		;
+		
 		if ((err=vbeSetMode(video_mode,&crtc_pass)) != VBE_OK)
 		{
 			PRINT_VBE_ERR("vbeSetMode",err);
@@ -992,6 +978,7 @@ config(uint32_t width, uint32_t height, uint32_t d_width, uint32_t d_height, uin
 		  else mp_msg(MSGT_VO,MSGL_INFO, MSGTR_LIBVO_VESA_UsingVidix);
 		  vidix_start();
 
+
 		  /* set colorkey */       
 		  if (vidix_grkey_support())
 		  {
@@ -1032,7 +1019,7 @@ config(uint32_t width, uint32_t height, uint32_t d_width, uint32_t d_height, uin
             }
 	    for(i=0;i<multi_size;i++)
 	    {
-		win.ptr = dga_buffer = video_base + multi_buff[i];
+		win.ptr = video_base + multi_buff[i];
                 clear_screen();	/* Clear screen for stupid BIOSes */
 		if( mp_msg_test(MSGT_VO,MSGL_DBG2) ) paintBkGnd();
 	    }

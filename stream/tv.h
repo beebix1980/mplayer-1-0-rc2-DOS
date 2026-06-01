@@ -71,14 +71,14 @@ typedef struct tvi_info_s
 
 typedef struct tvi_functions_s
 {
-    int (*init)();
-    int (*uninit)();
-    int (*control)();
-    int (*start)();
-    double (*grab_video_frame)();
-    int (*get_video_framesize)();
-    double (*grab_audio_frame)();
-    int (*get_audio_framesize)();
+    int (*init)(void *priv);
+    int (*uninit)(void *priv);
+    int (*control)(void *priv, int cmd, void *arg);
+    int (*start)(void *priv);
+    double (*grab_video_frame)(void *priv, char *buffer, int len);
+    int (*get_video_framesize)(void *priv);
+    double (*grab_audio_frame)(void *priv, char *buffer, int len);
+    int (*get_audio_framesize)(void *priv);
 } tvi_functions_t;
 
 typedef struct tvi_handle_s {

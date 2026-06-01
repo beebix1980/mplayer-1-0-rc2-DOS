@@ -626,7 +626,7 @@ inline int af_resize_local_buffer(af_instance_t* af, af_data_t* data)
   if(af->data->audio) 
     free(af->data->audio);
   // Create new buffer and check that it is OK
-  af->data->audio = malloc(len);
+  af->data->audio = malloc(len + 1024);
   if(!af->data->audio){
     af_msg(AF_MSG_FATAL,"[libaf] Could not allocate memory \n");
     return AF_ERROR;

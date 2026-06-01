@@ -4390,9 +4390,11 @@ redo_frame:
             }
         }
 
+#if QUANTIZE2
         if(QUANTIZE2)
             dwt_quantize(s, p, s->spatial_dwt_buffer, w, h, w, s->spatial_decomposition_type);
         else
+#endif
             ff_spatial_dwt(s->spatial_dwt_buffer, w, h, w, s->spatial_decomposition_type, s->spatial_decomposition_count);
 
         if(s->pass1_rc && plane_index==0){

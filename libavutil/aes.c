@@ -47,21 +47,26 @@ static uint32_t enc_multbl[4][256];
 static uint32_t dec_multbl[4][256];
 #endif
 
-static inline void addkey(uint64_t dst[2], uint64_t src[2], uint64_t round_key[2]){
+static inline void addkey(void *dst_ptr, void *src_ptr, void *round_key_ptr){
+    uint64_t *dst = dst_ptr;
+    uint64_t *src = src_ptr;
+    uint64_t *round_key = round_key_ptr;
     dst[0] = src[0] ^ round_key[0];
     dst[1] = src[1] ^ round_key[1];
 }
 
-static void subshift(uint8_t s0[2][16], int s, uint8_t *box){
-    uint8_t (*s1)[16]= s0[0] - s;
-    uint8_t (*s3)[16]= s0[0] + s;
+static void subshift(void *s0_ptr, int s, uint8_t *box){
+    uint8_t (*s0)[16] = s0_ptr;
+    uint8_t (*s1)[16]= (uint8_t (*)[16])(s0[0] - s);
+    uint8_t (*s3)[16]= (uint8_t (*)[16])(s0[0] + s);
     s0[0][0]=box[s0[1][ 0]]; s0[0][ 4]=box[s0[1][ 4]]; s0[0][ 8]=box[s0[1][ 8]]; s0[0][12]=box[s0[1][12]];
     s1[0][3]=box[s1[1][ 7]]; s1[0][ 7]=box[s1[1][11]]; s1[0][11]=box[s1[1][15]]; s1[0][15]=box[s1[1][ 3]];
     s0[0][2]=box[s0[1][10]]; s0[0][10]=box[s0[1][ 2]]; s0[0][ 6]=box[s0[1][14]]; s0[0][14]=box[s0[1][ 6]];
     s3[0][1]=box[s3[1][13]]; s3[0][13]=box[s3[1][ 9]]; s3[0][ 9]=box[s3[1][ 5]]; s3[0][ 5]=box[s3[1][ 1]];
 }
 
-static inline int mix_core(uint32_t multbl[4][256], int a, int b, int c, int d){
+static inline int mix_core(void *multbl_ptr, int a, int b, int c, int d){
+    uint32_t (*multbl)[256] = multbl_ptr;
 #ifdef CONFIG_SMALL
 #define ROT(x,s) ((x<<s)|(x>>(32-s)))
     return multbl[0][a] ^ ROT(multbl[0][b], 8) ^ ROT(multbl[0][c], 16) ^ ROT(multbl[0][d], 24);
@@ -70,14 +75,15 @@ static inline int mix_core(uint32_t multbl[4][256], int a, int b, int c, int d){
 #endif
 }
 
-static inline void mix(uint8_t state[2][4][4], uint32_t multbl[4][256], int s1, int s3){
-    ((uint32_t *)(state))[0] = mix_core(multbl, state[1][0][0], state[1][s1  ][1], state[1][2][2], state[1][s3  ][3]);
-    ((uint32_t *)(state))[1] = mix_core(multbl, state[1][1][0], state[1][s3-1][1], state[1][3][2], state[1][s1-1][3]);
-    ((uint32_t *)(state))[2] = mix_core(multbl, state[1][2][0], state[1][s3  ][1], state[1][0][2], state[1][s1  ][3]);
-    ((uint32_t *)(state))[3] = mix_core(multbl, state[1][3][0], state[1][s1-1][1], state[1][1][2], state[1][s3-1][3]);
+static inline void mix(void *state_ptr, void *multbl_ptr, int s1, int s3){
+    uint8_t (*state)[4][4] = state_ptr;
+    ((uint32_t *)(state))[0] = mix_core(multbl_ptr, state[1][0][0], state[1][s1  ][1], state[1][2][2], state[1][s3  ][3]);
+    ((uint32_t *)(state))[1] = mix_core(multbl_ptr, state[1][1][0], state[1][s3-1][1], state[1][3][2], state[1][s1-1][3]);
+    ((uint32_t *)(state))[2] = mix_core(multbl_ptr, state[1][2][0], state[1][s3  ][1], state[1][0][2], state[1][s1  ][3]);
+    ((uint32_t *)(state))[3] = mix_core(multbl_ptr, state[1][3][0], state[1][s1-1][1], state[1][1][2], state[1][s3-1][3]);
 }
 
-static inline void crypt(AVAES *a, int s, uint8_t *sbox, uint32_t *multbl){
+static inline void crypt(AVAES *a, int s, uint8_t *sbox, void *multbl){
     int r;
 
     for(r=a->rounds-1; r>0; r--){
@@ -108,7 +114,8 @@ void av_aes_crypt(AVAES *a, uint8_t *dst, uint8_t *src, int count, uint8_t *iv, 
     }
 }
 
-static void init_multbl2(uint8_t tbl[1024], int c[4], uint8_t *log8, uint8_t *alog8, uint8_t *sbox){
+static void init_multbl2(void *tbl_ptr, int c[4], uint8_t *log8, uint8_t *alog8, uint8_t *sbox){
+    uint8_t *tbl = tbl_ptr;
     int i, j;
     for(i=0; i<1024; i++){
         int x= sbox[i>>2];
@@ -184,7 +191,7 @@ int av_aes_init(AVAES *a, const uint8_t *key, int key_bits, int decrypt) {
     }else{
         for(i=0; i<(rounds+1)>>1; i++){
             for(j=0; j<16; j++)
-                FFSWAP(int, a->round_key[i][0][j], a->round_key[rounds-i][0][j]);
+                FFSWAP(uint8_t, ((uint8_t*)(a->round_key[i]))[j], ((uint8_t*)(a->round_key[rounds-i]))[j]);
         }
     }
 

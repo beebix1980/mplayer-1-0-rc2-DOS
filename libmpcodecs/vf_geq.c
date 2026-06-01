@@ -22,7 +22,9 @@
 #include <math.h>
 #include <inttypes.h>
 
-#include "config.h"
+#include "img_format.h"
+#include "mp_image.h"
+#include "vf.h"
 
 #include "mp_msg.h"
 #include "cpudetect.h"
@@ -43,10 +45,6 @@
 #ifdef HAVE_MALLOC_H
 #include <malloc.h>
 #endif
-
-#include "img_format.h"
-#include "mp_image.h"
-#include "vf.h"
 
 
 struct vf_priv_s {
@@ -96,16 +94,16 @@ static inline double getpix(struct vf_instance_s* vf, double x, double y, int pl
 
 //FIXME cubic interpolate
 //FIXME keep the last few frames
-static double lum(struct vf_instance_s* vf, double x, double y){
-    return getpix(vf, x, y, 0);
+static double lum(void* vf, double x, double y){
+    return getpix((struct vf_instance_s*)vf, x, y, 0);
 }
 
-static double cb(struct vf_instance_s* vf, double x, double y){
-    return getpix(vf, x, y, 1);
+static double cb(void* vf, double x, double y){
+    return getpix((struct vf_instance_s*)vf, x, y, 1);
 }
 
-static double cr(struct vf_instance_s* vf, double x, double y){
-    return getpix(vf, x, y, 2);
+static double cr(void* vf, double x, double y){
+    return getpix((struct vf_instance_s*)vf, x, y, 2);
 }
 
 static int put_image(struct vf_instance_s* vf, mp_image_t *mpi, double pts){
@@ -208,7 +206,7 @@ static int open(vf_instance_t *vf, char* args){
             NULL
         };
         char * a;
-        vf->priv->e[plane] = ff_parse(eq[plane], const_names, NULL, NULL, func2, func2_names, &a);
+        vf->priv->e[plane] = ff_parse(eq[plane], const_names, NULL, NULL, func2, (char **)func2_names, &a);
 
         if (!vf->priv->e[plane]) {
             mp_msg(MSGT_VFILTER, MSGL_ERR, "geq: error loading equation `%s': %s\n", eq[plane], a);

@@ -27,6 +27,7 @@
  * DSP utils
  */
 
+#include <string.h>
 #include "avcodec.h"
 #include "dsputil.h"
 #include "mpegvideo.h"
@@ -4153,7 +4154,29 @@ void dsputil_init(DSPContext* c, AVCodecContext *avctx)
     memset(c->put_2tap_qpel_pixels_tab, 0, sizeof(c->put_2tap_qpel_pixels_tab));
     memset(c->avg_2tap_qpel_pixels_tab, 0, sizeof(c->avg_2tap_qpel_pixels_tab));
 
+#if defined(__DJGPP__)
+    {
+        unsigned short cw = 0x037F;
+        __asm__ __volatile__(
+          "fninit\n\t"
+          "fldcw %0\n\t"
+          :
+          : "m" (cw)
+        );
+    }
+#endif
     if (ENABLE_MMX)      dsputil_init_mmx   (c, avctx);
+#if defined(__DJGPP__)
+    {
+        unsigned short cw = 0x037F;
+        __asm__ __volatile__(
+          "fninit\n\t"
+          "fldcw %0\n\t"
+          :
+          : "m" (cw)
+        );
+    }
+#endif
     if (ENABLE_ARMV4L)   dsputil_init_armv4l(c, avctx);
     if (ENABLE_MLIB)     dsputil_init_mlib  (c, avctx);
     if (ENABLE_VIS)      dsputil_init_vis   (c, avctx);

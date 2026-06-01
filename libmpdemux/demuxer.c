@@ -723,12 +723,14 @@ if (file_format) {
 // Test demuxers with safe file checks
 for (i = 0; (demuxer_desc = demuxer_list[i]); i++) {
   if (demuxer_desc->safe_check) {
+    mp_msg(MSGT_DEMUXER, MSGL_INFO, "DEBUG: demux_open_stream safe_checking: %s\n", demuxer_desc->shortdesc);
     demuxer = new_demuxer(stream,demuxer_desc->type,audio_id,video_id,dvdsub_id,filename);
     if ((fformat = demuxer_desc->check_file(demuxer)) != 0) {
       if (fformat == demuxer_desc->type) {
         demuxer_t *demux2 = demuxer;
         mp_msg(MSGT_DEMUXER, MSGL_INFO, MSGTR_Detected_XXX_FileFormat, demuxer_desc->shortdesc);
         file_format = fformat;
+        mp_msg(MSGT_DEMUXER, MSGL_INFO, "DEBUG: demux_open_stream safe_opening: %s\n", demuxer_desc->shortdesc);
         if (!demuxer->desc->open || (demux2 = demuxer->desc->open(demuxer))) {
           demuxer = demux2;
           goto dmx_open;
@@ -768,12 +770,14 @@ if(file_format==DEMUXER_TYPE_UNKNOWN && filename && extension_parsing==1){
 // Try detection for all other demuxers
 for (i = 0; (demuxer_desc = demuxer_list[i]); i++) {
   if (!demuxer_desc->safe_check && demuxer_desc->check_file) {
+    mp_msg(MSGT_DEMUXER, MSGL_INFO, "DEBUG: demux_open_stream checking: %s\n", demuxer_desc->shortdesc);
     demuxer = new_demuxer(stream,demuxer_desc->type,audio_id,video_id,dvdsub_id,filename);
     if ((fformat = demuxer_desc->check_file(demuxer)) != 0) {
       if (fformat == demuxer_desc->type) {
         demuxer_t *demux2 = demuxer;
         mp_msg(MSGT_DEMUXER, MSGL_INFO, MSGTR_Detected_XXX_FileFormat, demuxer_desc->shortdesc);
         file_format = fformat;
+        mp_msg(MSGT_DEMUXER, MSGL_INFO, "DEBUG: demux_open_stream opening: %s\n", demuxer_desc->shortdesc);
         if (!demuxer->desc->open || (demux2 = demuxer->desc->open(demuxer))) {
           demuxer = demux2;
           goto dmx_open;

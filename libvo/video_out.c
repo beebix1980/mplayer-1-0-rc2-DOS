@@ -338,11 +338,17 @@ int config_video_out(vo_functions_t *vo, uint32_t width, uint32_t height,
   aspect_save_prescale(d_width,d_height);
 
   if (vo->control(VOCTRL_UPDATE_SCREENINFO, NULL) == VO_TRUE) {
-  aspect(&d_width,&d_height,A_NOZOOM);
+  int tmp_d_width = d_width;
+  int tmp_d_height = d_height;
+  aspect(&tmp_d_width,&tmp_d_height,A_NOZOOM);
+  d_width = tmp_d_width;
+  d_height = tmp_d_height;
   vo_dx = (int)(vo_screenwidth - d_width) / 2;
   vo_dy = (int)(vo_screenheight - d_height) / 2;
-  geometry(&vo_dx, &vo_dy, &d_width, &d_height,
+  geometry(&vo_dx, &vo_dy, &tmp_d_width, &tmp_d_height,
            vo_screenwidth, vo_screenheight);
+  d_width = tmp_d_width;
+  d_height = tmp_d_height;
   vo_dx += xinerama_x;
   vo_dy += xinerama_y;
   vo_dwidth = d_width;

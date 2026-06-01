@@ -149,8 +149,37 @@ typedef struct {
 
 void mov_build_index(mov_track_t* trak,int timescale){
     int i,j,s;
-    int last=trak->chunks_size;
+    int last;
     unsigned int pts=0;
+
+    if (!trak) return;
+    if (trak->chunks_size < 0) trak->chunks_size = 0;
+    if (trak->chunks_size > 0 && !trak->chunks) {
+        mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: track #%d chunks table is NULL, cannot build index!\n", trak->id);
+        return;
+    }
+    if (trak->chunkmap_size < 0) trak->chunkmap_size = 0;
+    if (trak->chunkmap_size > 0 && !trak->chunkmap) {
+        mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: track #%d chunkmap table is NULL, cannot build index!\n", trak->id);
+        return;
+    }
+    if (trak->durmap_size < 0) trak->durmap_size = 0;
+    if (trak->durmap_size > 0 && !trak->durmap) {
+        mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: track #%d durmap table is NULL, cannot build index!\n", trak->id);
+        return;
+    }
+    if (trak->editlist_size < 0) trak->editlist_size = 0;
+    if (trak->editlist_size > 0 && !trak->editlist) {
+        mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: track #%d editlist table is NULL, cannot build index!\n", trak->id);
+        return;
+    }
+    if (trak->keyframes_size < 0) trak->keyframes_size = 0;
+    if (trak->keyframes_size > 0 && !trak->keyframes) {
+        mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: track #%d keyframes table is NULL, cannot build index!\n", trak->id);
+        return;
+    }
+
+    last=trak->chunks_size;
 
 #if 0
     if (trak->chunks_size <= 0)
@@ -208,8 +237,17 @@ void mov_build_index(mov_track_t* trak,int timescale){
 
     // workaround for fixed-size video frames (dv and uncompressed)
     if(!trak->samples_size && trak->type!=MOV_TRAK_AUDIO){
+	if (s <= 0 || s > 10*1024*1024) {
+	    mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: Invalid sample count %d in build index!\n", s);
+	    return;
+	}
 	trak->samples_size=s;
 	trak->samples=calloc(s, sizeof(mov_sample_t));
+	if (!trak->samples) {
+	    mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: calloc failed for samples in build index!\n");
+	    trak->samples_size = 0;
+	    return;
+	}
 	for(i=0;i<s;i++)
 	    trak->samples[i].size=trak->samplesize;
 	trak->samplesize=0;
@@ -224,21 +262,41 @@ void mov_build_index(mov_track_t* trak,int timescale){
     }
     
     if (trak->samples_size < s) {
+      void *tmp;
       mp_msg(MSGT_DEMUX, MSGL_WARN,
              "MOV: durmap or chunkmap bigger than sample count (%i vs %i)\n",
              s, trak->samples_size);
+      if (s <= 0 || s > 10*1024*1024) {
+          mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: Invalid samples count %d in build index!\n", s);
+          return;
+      }
+      tmp = realloc_struct(trak->samples, s, sizeof(mov_sample_t));
+      if (!tmp) {
+          mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: realloc failed for samples in build index!\n");
+          return;
+      }
+      trak->samples = tmp;
       trak->samples_size = s;
-      trak->samples = realloc_struct(trak->samples, s, sizeof(mov_sample_t));
+    }
+
+    if (trak->samples_size > 0 && !trak->samples) {
+        mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: track #%d samples table is NULL, cannot build index!\n", trak->id);
+        return;
     }
 
     // calc pts:
     s=0;
     for(j=0;j<trak->durmap_size;j++){
 	for(i=0;i<trak->durmap[j].num;i++){
+	    if (s >= trak->samples_size) {
+		mp_msg(MSGT_DEMUX, MSGL_WARN, "MOV: Warning: sample index %d exceeds samples_size %d in calc pts!\n", s, trak->samples_size);
+		break;
+	    }
 	    trak->samples[s].pts=pts;
 	    ++s;
 	    pts+=trak->durmap[j].dur;
 	}
+	if (s >= trak->samples_size) break;
     }
     
     // calc sample offsets
@@ -246,6 +304,10 @@ void mov_build_index(mov_track_t* trak,int timescale){
     for(j=0;j<trak->chunks_size;j++){
 	off_t pos=trak->chunks[j].pos;
 	for(i=0;i<trak->chunks[j].size;i++){
+	    if (s >= trak->samples_size) {
+		mp_msg(MSGT_DEMUX, MSGL_WARN, "MOV: Warning: sample index %d exceeds samples_size %d in calc sample offsets!\n", s, trak->samples_size);
+		break;
+	    }
 	    trak->samples[s].pos=pos;
 	    mp_msg(MSGT_DEMUX, MSGL_DBG3, "Sample %5d: pts=%8d  off=0x%08X  size=%d\n",s,
 		trak->samples[s].pts,
@@ -254,6 +316,7 @@ void mov_build_index(mov_track_t* trak,int timescale){
 	    pos+=trak->samples[s].size;
 	    ++s;
 	}
+	if (s >= trak->samples_size) break;
     }
 
     // precalc editlist entries
@@ -274,7 +337,11 @@ void mov_build_index(mov_track_t* trak,int timescale){
 		if(pts<=trak->samples[sample].pts) break;
 	    }
 	    el->start_sample=sample;
+	    if (sample < trak->samples_size) {
 	    el->pts_offset=((long long)e_pts*(long long)trak->timescale)/(long long)timescale-trak->samples[sample].pts;
+	    } else {
+		el->pts_offset=0;
+	    }
 	    pts+=((long long)el->dur*(long long)trak->timescale)/(long long)timescale;
 	    e_pts+=el->dur;
 	    // find end sample
@@ -1605,7 +1672,18 @@ static int lschunks_intrak(demuxer_t* demuxer, int level, unsigned int id,
       mp_msg(MSGT_DEMUX,MSGL_V,"MOV: %*sTrack header!\n", level, "");
       // read codec data
       trak->tkdata_len = len;
+      if (trak->tkdata_len <= 0 || trak->tkdata_len > 65536) {
+        mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: Invalid tkhd length %d!\n", trak->tkdata_len);
+        stream_skip(demuxer->stream, len);
+        break;
+      }
       trak->tkdata = malloc(trak->tkdata_len);
+      if (!trak->tkdata) {
+        mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: malloc failed for tkhd (size %d)!\n", trak->tkdata_len);
+        trak->tkdata_len = 0;
+        stream_skip(demuxer->stream, len);
+        break;
+      }
       stream_read(demuxer->stream, trak->tkdata, trak->tkdata_len);
 /*
 0  1 Version
@@ -1654,13 +1732,21 @@ static int lschunks_intrak(demuxer_t* demuxer, int level, unsigned int id,
       unsigned int comp_flags = stream_read_dword(demuxer->stream);
       unsigned int comp_mask = stream_read_dword(demuxer->stream);
       int len = stream_read_char(demuxer->stream);
-      char* str = malloc(len + 1);
+      char* str = NULL;
+      if (len >= 0 && len < 65536) {
+        str = malloc(len + 1);
+      }
+      if (str) {
       stream_read(demuxer->stream, str, len);
       str[len] = 0;
+      } else {
+        mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: skipped hdlr data allocation (len=%d)\n", len);
+        if (len > 0) stream_skip(demuxer->stream, len);
+      }
       mp_msg(MSGT_DEMUX, MSGL_V,
              "MOV: %*sHandler header: %.4s/%.4s (%.4s) %s\n", level, "",
-             (char *)&type, (char *)&subtype, (char *)&manufact, str);
-      free(str);
+             (char *)&type, (char *)&subtype, (char *)&manufact, str ? str : "unknown");
+      if (str) free(str);
       switch(bswap_32(type)) {
         case MOV_FOURCC('m','h','l','r'):
           trak->media_handler = bswap_32(subtype);
@@ -1723,8 +1809,17 @@ static int lschunks_intrak(demuxer_t* demuxer, int level, unsigned int id,
           // read type specific (audio/video/time/text etc) header
           // NOTE: trak type is not yet known at this point :(((
           trak->stdata_len = len - 8;
+          if (trak->stdata_len > 0 && trak->stdata_len < 10*1024*1024) {
           trak->stdata = malloc(trak->stdata_len);
+          } else {
+            trak->stdata = NULL;
+          }
+          if (trak->stdata) {
           stream_read(demuxer->stream, trak->stdata, trak->stdata_len);
+          } else {
+            mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: skipped stsd data allocation (size %d)\n", trak->stdata_len);
+            trak->stdata_len = 0;
+          }
         }
         if (!stream_seek(demuxer->stream, pos + len))
           break;
@@ -1739,7 +1834,17 @@ static int lschunks_intrak(demuxer_t* demuxer, int level, unsigned int id,
       mp_msg(MSGT_DEMUX, MSGL_V,
              "MOV: %*sSample duration table! (%d blocks)\n", level, "",
              len);
+      if (len <= 0 || len > 10*1024*1024) {
+        mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: Invalid stts block count %d!\n", len);
+        break;
+      }
       trak->durmap = calloc(len, sizeof(mov_durmap_t));
+      if (!trak->durmap) {
+        mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: calloc failed for stts!\n");
+        trak->durmap_size = 0;
+        stream_skip(demuxer->stream, len * 8);
+        break;
+      }
       trak->durmap_size = len;
       for (i = 0; i < len; i++) {
         trak->durmap[i].num = stream_read_dword(demuxer->stream);
@@ -1760,9 +1865,18 @@ static int lschunks_intrak(demuxer_t* demuxer, int level, unsigned int id,
       mp_msg(MSGT_DEMUX, MSGL_V,
              "MOV: %*sSample->Chunk mapping table!  (%d blocks) (ver:%d,flags:%d)\n", level, "",
              len, ver, flags);
-      // read data:
-      trak->chunkmap_size = len;
+      if (len <= 0 || len > 10*1024*1024) {
+        mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: Invalid stsc block count %d!\n", len);
+        break;
+      }
       trak->chunkmap = calloc(len, sizeof(mov_chunkmap_t));
+      if (!trak->chunkmap) {
+        mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: calloc failed for stsc!\n");
+        trak->chunkmap_size = 0;
+        stream_skip(demuxer->stream, len * 12);
+        break;
+      }
+      trak->chunkmap_size = len;
       for (i = 0; i < len; i++) {
         trak->chunkmap[i].first = stream_read_dword(demuxer->stream) - 1;
         trak->chunkmap[i].spc = stream_read_dword(demuxer->stream);
@@ -1783,7 +1897,17 @@ static int lschunks_intrak(demuxer_t* demuxer, int level, unsigned int id,
       trak->samplesize = ss;
       if (!ss) {
         // variable samplesize
+        if (entries <= 0 || entries > 10*1024*1024) {
+          mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: Invalid stsz entries count %d!\n", entries);
+          break;
+        }
         trak->samples = realloc_struct(trak->samples, entries, sizeof(mov_sample_t));
+        if (!trak->samples) {
+          mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: realloc failed for stsz!\n");
+          trak->samples_size = 0;
+          stream_skip(demuxer->stream, entries * 4);
+          break;
+        }
         trak->samples_size = entries;
         for (i = 0; i < entries; i++)
           trak->samples[i].size = stream_read_dword(demuxer->stream);
@@ -1797,10 +1921,25 @@ static int lschunks_intrak(demuxer_t* demuxer, int level, unsigned int id,
       mp_msg(MSGT_DEMUX, MSGL_V, 
              "MOV: %*sChunk offset table! (%d chunks)\n", level, "",
              len);
+      if (len <= 0 || len > 10*1024*1024) {
+        mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: Invalid stco chunk count %d!\n", len);
+        break;
+      }
       // extend array if needed:
       if (len > trak->chunks_size) {
-        trak->chunks = realloc_struct(trak->chunks, len, sizeof(mov_chunk_t));
+        void *tmp = realloc_struct(trak->chunks, len, sizeof(mov_chunk_t));
+        if (!tmp) {
+          mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: realloc failed for stco!\n");
+          stream_skip(demuxer->stream, len * 4);
+          break;
+        }
+        trak->chunks = tmp;
         trak->chunks_size = len;
+      }
+      if (!trak->chunks) {
+        mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: trak->chunks is NULL in stco!\n");
+        stream_skip(demuxer->stream, len * 4);
+        break;
       }
       // read elements:
       for(i = 0; i < len; i++)
@@ -1814,10 +1953,25 @@ static int lschunks_intrak(demuxer_t* demuxer, int level, unsigned int id,
       mp_msg(MSGT_DEMUX, MSGL_V,
              "MOV: %*s64bit chunk offset table! (%d chunks)\n", level, "",
              len);
+      if (len <= 0 || len > 10*1024*1024) {
+        mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: Invalid co64 chunk count %d!\n", len);
+        break;
+      }
       // extend array if needed:
       if (len > trak->chunks_size) {
-        trak->chunks = realloc_struct(trak->chunks, len, sizeof(mov_chunk_t));
+        void *tmp = realloc_struct(trak->chunks, len, sizeof(mov_chunk_t));
+        if (!tmp) {
+          mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: realloc failed for co64!\n");
+          stream_skip(demuxer->stream, len * 8);
+          break;
+        }
+        trak->chunks = tmp;
         trak->chunks_size = len;
+      }
+      if (!trak->chunks) {
+        mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: trak->chunks is NULL in co64!\n");
+        stream_skip(demuxer->stream, len * 8);
+        break;
       }
       // read elements:
       for (i = 0; i < len; i++) {
@@ -1840,8 +1994,18 @@ static int lschunks_intrak(demuxer_t* demuxer, int level, unsigned int id,
       mp_msg(MSGT_DEMUX, MSGL_V,
              "MOV: %*sSyncing samples (keyframes) table! (%d entries) (ver:%d,flags:%d)\n", level, "",
              entries, ver, flags);
-      trak->keyframes_size = entries;
+      if (entries <= 0 || entries > 10*1024*1024) {
+        mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: Invalid stss entries count %d!\n", entries);
+        break;
+      }
       trak->keyframes = calloc(entries, sizeof(unsigned int));
+      if (!trak->keyframes) {
+        mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: calloc failed for stss!\n");
+        trak->keyframes_size = 0;
+        stream_skip(demuxer->stream, entries * 4);
+        break;
+      }
+      trak->keyframes_size = entries;
       for (i = 0; i < entries; i++)
         trak->keyframes[i] = stream_read_dword(demuxer->stream) - 1;
       break;
@@ -1875,9 +2039,19 @@ static int lschunks_intrak(demuxer_t* demuxer, int level, unsigned int id,
       mp_msg(MSGT_DEMUX, MSGL_V,
              "MOV: %*sEdit list table (%d entries) (ver:%d,flags:%d)\n", level, "",
              entries, ver, flags);
+      if (entries <= 0 || entries > 10*1024*1024) {
+        mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: Invalid elst entries count %d!\n", entries);
+        break;
+      }
 #if 1
+      trak->editlist = calloc(entries, sizeof(mov_editlist_t));
+      if (!trak->editlist) {
+        mp_msg(MSGT_DEMUX, MSGL_ERR, "MOV: calloc failed for elst!\n");
+        trak->editlist_size = 0;
+        stream_skip(demuxer->stream, entries * 12);
+        break;
+      }
       trak->editlist_size = entries;
-      trak->editlist = calloc(trak->editlist_size, sizeof(mov_editlist_t));
       for (i = 0; i < entries; i++) {
         int dur = stream_read_dword(demuxer->stream);
         int mt = stream_read_dword(demuxer->stream);

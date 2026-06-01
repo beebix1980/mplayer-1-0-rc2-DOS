@@ -1860,8 +1860,8 @@ static int gray16swap(SwsContext *c, uint8_t* src[], int srcStride[], int srcSli
     int y=      srcSliceY;
     int height= srcSliceH;
     int i, j;
-    uint16_t *srcPtr= src[0];
-    uint16_t *dstPtr= dst[0] + dstStride[0]*y/2;
+    uint16_t *srcPtr= (uint16_t *)src[0];
+    uint16_t *dstPtr= (uint16_t *)(dst[0] + dstStride[0]*y/2);
     for (i=0; i<height; i++)
     {
         for (j=0; j<length; j++) dstPtr[j] = bswap_16(srcPtr[j]);
@@ -2140,7 +2140,7 @@ SwsContext *sws_getContext(int srcW, int srcH, int srcFormat, int dstW, int dstH
     c->chrDstW= -((-dstW) >> c->chrDstHSubSample);
     c->chrDstH= -((-dstH) >> c->chrDstVSubSample);
 
-    sws_setColorspaceDetails(c, Inverse_Table_6_9[SWS_CS_DEFAULT], srcRange, Inverse_Table_6_9[SWS_CS_DEFAULT] /* FIXME*/, dstRange, 0, 1<<16, 1<<16);
+    sws_setColorspaceDetails(c, (const int *)Inverse_Table_6_9[SWS_CS_DEFAULT], srcRange, (const int *)Inverse_Table_6_9[SWS_CS_DEFAULT] /* FIXME*/, dstRange, 0, 1<<16, 1<<16);
 
     /* unscaled special Cases */
     if (unscaled && !usesHFilter && !usesVFilter)
@@ -2548,7 +2548,7 @@ int sws_scale(SwsContext *c, uint8_t* src[], int srcStride[], int srcSliceY,
             int v= av_clip_uint8(((RV*r + GV*g + BV*b)>>RGB2YUV_SHIFT) + 128);
             pal[i]= y + (u<<8) + (v<<16);
         }
-        src2[1]= pal;
+        src2[1]= (uint8_t *)pal;
     }
 
     // copy strides, so they can safely be modified

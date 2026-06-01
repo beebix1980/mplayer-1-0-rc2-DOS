@@ -52,6 +52,17 @@ void afm_help(void){
 
 int init_audio_codec(sh_audio_t *sh_audio)
 {
+#if defined(__DJGPP__)
+    {
+        unsigned short cw = 0x037F;
+        __asm__ __volatile__(
+          "fninit\n\t"
+          "fldcw %0\n\t"
+          :
+          : "m" (cw)
+        );
+    }
+#endif
   if ((af_cfg.force & AF_INIT_FORMAT_MASK) == AF_INIT_FLOAT) {
       int fmt = AF_FORMAT_FLOAT_NE;
       if (sh_audio->ad_driver->control(sh_audio, ADCTRL_QUERY_FORMAT,
@@ -71,7 +82,11 @@ int init_audio_codec(sh_audio_t *sh_audio)
       sh_audio->a_in_buffer_size=sh_audio->audio_in_minsize;
       mp_msg(MSGT_DECAUDIO,MSGL_V,MSGTR_AllocatingBytesForInputBuffer,
           sh_audio->a_in_buffer_size);
-      sh_audio->a_in_buffer=memalign(16,sh_audio->a_in_buffer_size);
+      sh_audio->a_in_buffer=malloc(sh_audio->a_in_buffer_size);
+      if(!sh_audio->a_in_buffer){
+          mp_msg(MSGT_DECAUDIO,MSGL_ERR,MSGTR_CantAllocAudioBuf);
+          return 0;
+      }
       memset(sh_audio->a_in_buffer,0,sh_audio->a_in_buffer_size);
       sh_audio->a_in_buffer_len=0;
   }
@@ -82,7 +97,7 @@ int init_audio_codec(sh_audio_t *sh_audio)
   mp_msg(MSGT_DECAUDIO,MSGL_V,MSGTR_AllocatingBytesForOutputBuffer,
       sh_audio->audio_out_minsize,MAX_OUTBURST,sh_audio->a_buffer_size);
 
-  sh_audio->a_buffer=memalign(16,sh_audio->a_buffer_size);
+  sh_audio->a_buffer=malloc(sh_audio->a_buffer_size);
   if(!sh_audio->a_buffer){
       mp_msg(MSGT_DECAUDIO,MSGL_ERR,MSGTR_CantAllocAudioBuf);
       return 0;
@@ -95,6 +110,17 @@ int init_audio_codec(sh_audio_t *sh_audio)
       uninit_audio(sh_audio); // free buffers
       return 0;
   }
+#if defined(__DJGPP__)
+    {
+        unsigned short cw = 0x037F;
+        __asm__ __volatile__(
+          "fninit\n\t"
+          "fldcw %0\n\t"
+          :
+          : "m" (cw)
+        );
+    }
+#endif
 
   sh_audio->inited=1;
   
@@ -120,6 +146,17 @@ int init_audio_codec(sh_audio_t *sh_audio)
   sh_audio->a_out_buffer=sh_audio->a_buffer;
   sh_audio->a_out_buffer_len=sh_audio->a_buffer_len;
   
+#if defined(__DJGPP__)
+    {
+        unsigned short cw = 0x037F;
+        __asm__ __volatile__(
+          "fninit\n\t"
+          "fldcw %0\n\t"
+          :
+          : "m" (cw)
+        );
+    }
+#endif
   return 1;
 }
 
@@ -333,7 +370,13 @@ int init_audio_filters(sh_audio_t *sh_audio,
   sh_audio->a_out_buffer_size=out_maxsize;
   if (sh_audio->a_out_buffer != sh_audio->a_buffer)
       free(sh_audio->a_out_buffer);
-  sh_audio->a_out_buffer=memalign(16,sh_audio->a_out_buffer_size);
+  sh_audio->a_out_buffer=malloc(sh_audio->a_out_buffer_size);
+  if(!sh_audio->a_out_buffer){
+      mp_msg(MSGT_DECAUDIO,MSGL_ERR,MSGTR_CantAllocAudioBuf);
+      sh_audio->afilter=NULL;
+      free(afs);
+      return 0;
+  }
   memset(sh_audio->a_out_buffer,0,sh_audio->a_out_buffer_size);
   sh_audio->a_out_buffer_len=0;
   }
@@ -349,6 +392,19 @@ int decode_audio(sh_audio_t *sh_audio,unsigned char *buf,int minlen,int maxlen)
   af_data_t  afd;  // filter input
   af_data_t* pafd; // filter output
   ad_functions_t* mpadec = sh_audio->ad_driver;
+
+#if defined(__DJGPP__)
+  // Periodically reset FPU and mask exceptions at the start of every audio decode cycle
+  {
+    unsigned short cw = 0x037F;
+    __asm__ __volatile__(
+      "fninit\n\t"
+      "fldcw %0\n\t"
+      :
+      : "m" (cw)
+    );
+  }
+#endif
 
   if(!sh_audio->inited) return -1; // no codec
   if(!sh_audio->afilter){

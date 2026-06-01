@@ -9,6 +9,9 @@
 #include "version.h"
 
 #include "stream/stream.h"
+#ifdef __DJGPP__
+#define stream_write_buffer(s, buf, len) (stream_write_buffer)(s, (unsigned char *)(buf), len)
+#endif
 #include "demuxer.h"
 #include "stheader.h"
 

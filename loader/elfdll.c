@@ -10,6 +10,10 @@
  */
 #include "config.h"
 
+#ifdef __DJGPP__
+#undef HAVE_LIBDL
+#endif
+
 #ifdef HAVE_LIBDL
 
 #include "wine/windef.h"

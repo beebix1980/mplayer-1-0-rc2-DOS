@@ -301,7 +301,7 @@ DS_Filter* DS_FilterCreate(const char* dllname, const GUID* id,
 	init++;
         break;
     }
-    tempAll->vt->Release(tempAll);
+    tempAll->vt->Release((IUnknown*)tempAll);
 
     if (!init)
     {

@@ -26,6 +26,8 @@
 #include "mediatype.h"
 #include "libwin32.h"
 
+const char* vo_format_name(int format);
+
 void DisplayMediaType(const char * label,const AM_MEDIA_TYPE* pmt){
     WAVEFORMATEX* pWF;
     VIDEOINFOHEADER* Vhdr;

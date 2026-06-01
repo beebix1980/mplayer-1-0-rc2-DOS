@@ -85,7 +85,7 @@ void vidix_term( void )
 //  ((vo_functions_t *)vo_server)->control=server_control;
 }
 
-static uint32_t vidix_draw_slice_420(uint8_t *image[], int stride[], int w,int h,int x,int y)
+static int vidix_draw_slice_420(uint8_t *image[], int stride[], int w,int h,int x,int y)
 {
     uint8_t *src;
     uint8_t *dest;
@@ -149,7 +149,7 @@ static uint32_t vidix_draw_slice_420(uint8_t *image[], int stride[], int w,int h
     return -1;
 }
 
-static uint32_t vidix_draw_slice_410(uint8_t *image[], int stride[], int w,int h,int x,int y)
+static int vidix_draw_slice_410(uint8_t *image[], int stride[], int w,int h,int x,int y)
 {
     uint8_t *src;
     uint8_t *dest;
@@ -195,7 +195,7 @@ static uint32_t vidix_draw_slice_410(uint8_t *image[], int stride[], int w,int h
     return -1;
 }
 
-static uint32_t vidix_draw_slice_410_fast(uint8_t *image[], int stride[], int w, int h, int x, int y)
+static int vidix_draw_slice_410_fast(uint8_t *image[], int stride[], int w, int h, int x, int y)
 {
     uint8_t *src;
     uint8_t *dest;
@@ -207,7 +207,7 @@ static uint32_t vidix_draw_slice_410_fast(uint8_t *image[], int stride[], int w,
     return 0;
 }
 
-static uint32_t vidix_draw_slice_400(uint8_t *image[], int stride[], int w,int h,int x,int y)
+static int vidix_draw_slice_400(uint8_t *image[], int stride[], int w,int h,int x,int y)
 {
     uint8_t *src;
     uint8_t *dest;
@@ -224,7 +224,7 @@ static uint32_t vidix_draw_slice_400(uint8_t *image[], int stride[], int w,int h
     return 0;
 }
 
-static uint32_t vidix_draw_slice_packed(uint8_t *image[], int stride[], int w,int h,int x,int y)
+static int vidix_draw_slice_packed(uint8_t *image[], int stride[], int w,int h,int x,int y)
 {
     uint8_t *src;
     uint8_t *dest;
@@ -241,7 +241,7 @@ static uint32_t vidix_draw_slice_packed(uint8_t *image[], int stride[], int w,in
     return 0;
 }
 
-uint32_t vidix_draw_slice(uint8_t *image[], int stride[], int w,int h,int x,int y)
+int vidix_draw_slice(uint8_t *image[], int stride[], int w,int h,int x,int y)
 {
     mp_msg(MSGT_VO,MSGL_WARN, MSGTR_LIBVO_SUB_VIDIX_DummyVidixdrawsliceWasCalled);
     return -1;
@@ -259,7 +259,7 @@ static uint32_t  vidix_draw_image(mp_image_t *mpi){
     return VO_TRUE;
 }
 
-uint32_t vidix_draw_frame(uint8_t *image[])
+int vidix_draw_frame(uint8_t *image[])
 {
   mp_msg(MSGT_VO,MSGL_WARN, MSGTR_LIBVO_SUB_VIDIX_DummyVidixdrawframeWasCalled);
   return -1;

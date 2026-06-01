@@ -3,6 +3,10 @@
 #include <assert.h>
 #include <time.h>
 
+#ifdef __DJGPP__
+#include <dpmi.h>
+#endif
+
 #include "config.h"
 #include "mp_msg.h"
 #include "help_mp.h"
@@ -239,7 +243,9 @@ static int init(sh_video_t *sh){
 	return(0);
     memset(ctx, 0, sizeof(vd_ffmpeg_ctx));
     
+    mp_msg(MSGT_DECVIDEO, MSGL_INFO, "DEBUG: codec dll name: %s\n", sh->codec->dll);
     lavc_codec = (AVCodec *)avcodec_find_decoder_by_name(sh->codec->dll);
+    mp_msg(MSGT_DECVIDEO, MSGL_INFO, "DEBUG: avcodec_find_decoder_by_name returned: %p\n", lavc_codec);
     if(!lavc_codec){
 	mp_msg(MSGT_DECVIDEO,MSGL_ERR,MSGTR_MissingLAVCcodec,sh->codec->dll);
         uninit(sh);
@@ -405,7 +411,35 @@ static int init(sh_video_t *sh){
     if(lavc_param_threads > 1)
         avcodec_thread_init(avctx, lavc_param_threads);
     /* open it */
-    if (avcodec_open(avctx, lavc_codec) < 0) {
+#ifdef __DJGPP__
+    mp_msg(MSGT_DECVIDEO, MSGL_INFO, "DEBUG: DPMI free physical: %lu KB, virtual: %lu KB\n", _go32_dpmi_remaining_physical_memory() / 1024, _go32_dpmi_remaining_virtual_memory() / 1024);
+#endif
+    mp_msg(MSGT_DECVIDEO, MSGL_INFO, "DEBUG: Calling avcodec_open. codec name: %s, priv_data_size: %d, width: %d, height: %d\n", lavc_codec->name, lavc_codec->priv_data_size, avctx->width, avctx->height);
+#if defined(__DJGPP__)
+    {
+        unsigned short cw = 0x037F;
+        __asm__ __volatile__(
+          "fninit\n\t"
+          "fldcw %0\n\t"
+          :
+          : "m" (cw)
+        );
+    }
+#endif
+    int open_ret = avcodec_open(avctx, lavc_codec);
+#if defined(__DJGPP__)
+    {
+        unsigned short cw = 0x037F;
+        __asm__ __volatile__(
+          "fninit\n\t"
+          "fldcw %0\n\t"
+          :
+          : "m" (cw)
+        );
+    }
+#endif
+    mp_msg(MSGT_DECVIDEO, MSGL_INFO, "DEBUG: avcodec_open returned: %d\n", open_ret);
+    if (open_ret < 0) {
         mp_msg(MSGT_DECVIDEO,MSGL_ERR, MSGTR_CantOpenCodec);
         uninit(sh);
         return 0;
@@ -446,7 +480,7 @@ static void uninit(sh_video_t *sh){
 }
 
 static void draw_slice(struct AVCodecContext *s,
-                	AVFrame *src, int offset[4],
+                	const AVFrame *src, int offset[4],
                 	int y, int type, int height){
     sh_video_t * sh = s->opaque;
     uint8_t *source[3]= {src->data[0] + offset[0], src->data[1] + offset[1], src->data[2] + offset[2]};
@@ -772,7 +806,7 @@ static mp_image_t* decode(sh_video_t *sh,void* data,int len,int flags){
 //        for(i=0; i<25; i++) printf("%02X ", ((uint8_t*)data)[i]);
         
         avctx->slice_count= FFMIN(hdr->chunks+1, 1000);
-        for(i=0; i<avctx->slice_count && end >= &offsets[2*i+1]; i++)
+        for(i=0; i<avctx->slice_count && end >= (char *)&offsets[2*i+1]; i++)
             avctx->slice_offset[i]= offsets[2*i];
 	len=hdr->len;
         data+= sizeof(dp_hdr_t);

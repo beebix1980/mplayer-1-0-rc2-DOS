@@ -93,6 +93,9 @@
 #ifdef __MINGW32__
 #define ENOTSUP 134		/* Not supported */
 #endif
+#elif defined(__DJGPP__)
+static inline int enable_os_io(void) { return 0; }
+static inline int disable_os_io(void) { return 0; }
 #endif
 
 #if defined(Lynx) && defined(__powerpc__)
@@ -701,7 +704,7 @@ int pci_scan(pciinfo_t *pci_list,unsigned *num_pci)
 #if defined(EOPNOTSUPP)
 #define ENOTSUP EOPNOTSUPP
 #else
-#warning "ENOTSUP nor EOPNOTSUPP defined!"
+#define ENOTSUP 134
 #endif
 #endif
 
