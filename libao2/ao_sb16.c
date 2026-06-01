@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -52,9 +53,8 @@ static void mask_sb_irq(int irq)
 	orig_pic1_mask = inportb(0x21);
 	orig_pic2_mask = inportb(0xa1);
 
-	/* Always mask IRQ 5 and 7 (common SB16 IRQs) to prevent interrupt storms
-	   if the BLASTER variable is missing or incorrect.
-	   We do NOT mask 9, 10, 11 unconditionally to avoid breaking hard drives. */
+	/* Always mask IRQ 5 and 7 to prevent interrupt storms
+	   if the BLASTER variable is missing or incorrect. */
 	uint8_t new_pic1 = orig_pic1_mask | (1 << 5) | (1 << 7);
 	
 	if (irq < 8) {
@@ -149,7 +149,7 @@ static int allocate_dma_buffer(int size) {
 	uint32_t start1 = phys;
 	uint32_t end1 = phys + size - 1;
 
-	/* memory calculation: VMs often have buggy 16-bit DMA that wraps at 64KB! */
+	/* memory calculation: VMs often have buggy 16-bit DMA that wraps at 64KB !? */
 	if ((start1 / 65536) == (end1 / 65536)) {
 		dma_buffer_phys = start1;
 	} else {
@@ -167,30 +167,28 @@ static void free_dma_buffer(void) {
 	}
 }
 
-/* gets current dma transfer count */
-static inline uint16_t dma_get_count(void)
+/* Returns the current hardware DMA read offset (in bytes) within the
+ * ring buffer [0 .. total_size-1].
+ *
+ * Do _not_ read sb_port+0xE or sb_port+0xF here — those are interrupt
+ * ACK ports and must only be touched at uninit time. */
+static inline int dma_get_play_pos(void)
 {
-	uint16_t a, b;
+	uint16_t addr_a, addr_b;
 
-	/* secondary read operation */
 	do {
-		outportb(0xD8, 0);
-		a = inportb(0xC6);
-		a |= (inportb(0xC6) << 8);
+		outportb(0xD8, 0);                   /* clear flip-flop */
+		addr_a  = inportb(0xC4);             /* word addr low */
+		addr_a |= (inportb(0xC4) << 8);     /* word addr high */
 
 		outportb(0xD8, 0);
-		b = inportb(0xC6);
-		b |= (inportb(0xC6) << 8);
-	} while (abs((int)a - (int)b) > 64);
+		addr_b  = inportb(0xC4);
+		addr_b |= (inportb(0xC4) << 8);
+	} while (abs((int)addr_a - (int)addr_b) > 32);
 
-	/* ACK 16 BIT INTERRUPT */
-	inportb(sb_port + 0xF);
-
-	/* ACK 8 BIT INTERRUPT */
-	inportb(sb_port + 0xE);
-
-	if (b > 16384) b = 16384;
-	return b;
+	uint32_t phys_byte = (uint32_t)addr_b * 2;
+	int offset = (int)((phys_byte - dma_buffer_phys) & (uint32_t)(total_size - 1));
+	return offset;
 }
 
 /* sets up dma controller */
@@ -297,28 +295,32 @@ static void uninit(int immed) {
 	}
 }
 
-/* resets write position */
+/* resets write position to current hardware playback position */
 static void reset(void) {
 	if (dma_buffer_phys) {
-		uint16_t rem_words = dma_get_count();
-		int rem_bytes = rem_words * 2;
-		int play_pos = total_size - rem_bytes;
-
-		write_pos = play_pos % total_size;
+		/* Set write_pos just ahead of the current hardware read position
+		 * using the absolute DMA address, consistent with get_space. */
+		write_pos = dma_get_play_pos();
 	}
 }
 
-/* calculates available buffer space */
+/* calculates available buffer space.
+ *
+ * The SB16 is running autoinit DMA over the full total_size ring buffer.
+ * We poll the DMA address register to get the absolute hardware read
+ * position. This is reliable across both halves of the buffer
+ *
+ * free_space = (play_pos - write_pos) mod total_size,
+ * minus a small guard zone to avoid overwriting data mid-read.
+ */
 static int get_space(void) {
 	if (!dma_buffer_phys) return 0;
 
-	uint16_t rem_words = dma_get_count();
-	int rem_bytes = rem_words * 2;
-	int play_pos = total_size - rem_bytes;
+	/* Absolute byte offset that the hardware DMA is currently reading */
+	int play_pos = dma_get_play_pos();
 
 	int free_space = play_pos - write_pos;
-
-	if (free_space < 0) free_space += total_size;
+	if (free_space <= 0) free_space += total_size;
 
 	if (free_space > 1024) {
 		return free_space - 1024;
@@ -354,13 +356,19 @@ static int play(void *data, int len, int flags) {
 	return len;
 }
 
-/* calculates audio lag */
+/* calculates audio lag.
+ * Returns the amount of audio currently buffered,
+ *
+ * Uses the same absolute DMA address as get_space() for consistency. */
 static float get_delay(void) {
 	if (!dma_buffer_phys) return 0.0f;
 
-	int space = get_space();
-	int buffered = total_size - space;
+	int play_pos = dma_get_play_pos();
 
+	int buffered = write_pos - play_pos;
+	if (buffered < 0) buffered += total_size;
+
+	if (buffered <= 0) return 0.0f;
 	return (float)buffered / (float)ao_data.bps;
 }
 
@@ -375,3 +383,4 @@ static void audio_resume(void) {
 	/* 0xD6 resumes playback */
 	if (dma_buffer_phys) sb16_dsp_write(sb_port, 0xD6);
 }
+
