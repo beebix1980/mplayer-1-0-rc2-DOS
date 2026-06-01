@@ -46,6 +46,14 @@ void* p;
 static int devzero = -1;
 while(1){
   switch(shmem_type){
+#ifdef __DJGPP__
+  case 0:
+  case 1:
+    p=malloc(size);
+    if(p==NULL) break;
+    mp_dbg(MSGT_OSDEP, MSGL_DBG2, "shmem: %d bytes allocated using malloc (%p)\n",size,p);
+    return p;
+#else
   case 0:  // ========= MAP_ANON|MAP_SHARED ==========
 #ifdef MAP_ANON
     p=mmap(0,size,PROT_READ|PROT_WRITE,MAP_ANON|MAP_SHARED,-1,0);
@@ -63,6 +71,7 @@ while(1){
     if(p==MAP_FAILED) break; // failed
     mp_dbg(MSGT_OSDEP, MSGL_DBG2, "shmem: %d bytes allocated using mmap /dev/zero (%p)\n",size,p);
     return p;
+#endif
   case 2: { // ========= shmget() ==========
 #ifdef HAVE_SHM
     struct shmid_ds shmemds;
@@ -98,11 +107,15 @@ void shmem_free(void* p,int size){
   switch(shmem_type){
     case 0:
     case 1:
+#ifdef __DJGPP__
+	    free(p);
+#else
 	    if(munmap(p,size)) {
 		mp_msg(MSGT_OSDEP, MSGL_ERR, "munmap failed on %p %d bytes: %s\n",
 		    p,size,strerror(errno));
 	    }
-      break;
+#endif
+	    break;
     case 2:
 #ifdef HAVE_SHM
 	    if (shmdt(p) == -1)

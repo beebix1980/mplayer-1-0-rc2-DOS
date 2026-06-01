@@ -388,6 +388,7 @@ Video output:
 
 Audio output:
   --disable-alsa         disable ALSA audio output [autodetect]
+  --disable-allegro      disable Allegro audio output [autodetect]
   --disable-ossaudio     disable OSS audio output [autodetect]
   --disable-arts         disable aRts audio output [autodetect]
   --disable-esd          disable esd audio output [autodetect]
@@ -452,6 +453,7 @@ multiple paths separated by ':'):
   --with-extralibdir=DIR      extra linker search paths in DIR (*)
   --with-xvmclib=NAME         adapter-specific library name (e.g. XvMCNVIDIA)
 
+  --with-allegro-config=PATH  path to allegro-config
   --with-freetype-config=PATH path to freetype-config
   --with-fribidi-config=PATH  path to fribidi-config
   --with-glib-config=PATH     path to glib*-config
@@ -599,6 +601,7 @@ _mlib=no #broken, thus disabled
 _sgiaudio=auto
 _sunaudio=auto
 _alsa=auto
+_allegro=auto
 _fastmemcpy=yes
 _unrarlib=yes
 _win32dll=auto
@@ -728,6 +731,9 @@ for ac_option do
     _xvmclib=`echo $ac_option | cut -d '=' -f 2`
     ;;
 
+  --with-allegro-config=*)
+    _allegroconfig=`echo $ac_option | cut -d '=' -f 2`
+    ;;
   --with-sdl-config=*)
     _sdlconfig=`echo $ac_option | cut -d '=' -f 2`
     ;;
@@ -967,6 +973,8 @@ for ac_option do
   --disable-sgiaudio)	_sgiaudio=no	;;
   --enable-alsa)	_alsa=yes	;;
   --disable-alsa)	_alsa=no	;;
+  --enable-allegro)	_allegro=yes	;;
+  --disable-allegro)	_allegro=no	;;
   --enable-tv)		_tv=yes		;;
   --disable-tv)		_tv=no		;;
   --enable-tv-bsdbt848)	_tv_bsdbt848=yes	;;
@@ -1224,6 +1232,9 @@ if test -z "$_target" ; then
   MINGW32*)
     system_name=MINGW32
     ;;
+  *-DOS|FreeDOS|OpenDOS)
+    system_name=DJGPP
+    ;;
   *)
     system_name="$system_name-UNKNOWN"
     ;;
@@ -1285,6 +1296,7 @@ else # if test -z "$_target"
     morphos) system_name=MorphOS ;;
     amigaos) system_name=AmigaOS ;;
     mingw32msvc) system_name=MINGW32 ;;
+    msdosdjgpp) system_name=DJGPP ;;
   esac
   # We need to convert underscores so that values like k6-2 and pentium-mmx can be passed
   host_arch=`echo $_target | cut -d '-' -f 1`
@@ -1515,6 +1527,10 @@ fi
 if test "$_as" = auto ; then
   _as=`$_cc -print-prog-name=as`
   test -z "$_as" && _as=as
+fi
+if test $_cross_compile = yes; then
+  _cc_ranlib=`$_cc -print-prog-name=ranlib`
+  test "$_cc_ranlib" && _ranlib="$_cc_ranlib"
 fi
 
 # XXX: this should be ok..
@@ -2971,7 +2987,11 @@ cat > $TMPC << EOF
 int main (void) { (void) memalign(64, sizeof(char)); return 0; }
 EOF
 _memalign=no
-cc_check && _memalign=yes
+if test "$system_name" = DJGPP ; then 
+ _memalign=no
+else
+  cc_check && _memalign=yes
+fi
 if test "$_memalign" = yes ; then
  _def_memalign='#define HAVE_MEMALIGN 1'
 else
@@ -3666,7 +3686,7 @@ if test "$_smbsupport" = auto; then
 #include <libsmbclient.h>
 int main(void) { smbc_opendir("smb://"); return 0; }
 EOF
-  for _ld_tmp in "-lsmbclient" "-lsmbclient $_ld_dl" "-lsmbclient $_ld_dl -lnsl" "-lsmbclient $_ld_dl -lssl -lnsl" ; do
+  for _ld_tmp in "-lsmbclient" "-lsmbclient -lsocket" "-lsmbclient $_ld_dl" "-lsmbclient $_ld_dl -lnsl" "-lsmbclient $_ld_dl -lssl -lnsl" ; do
     cc_check $_ld_tmp && _ld_extra="$_ld_extra $_ld_tmp" && \
       _smbsupport=yes && break
   done
@@ -4728,11 +4748,19 @@ if test "$_vesa" = auto ; then
 int main(void) { vbeVersion(); return 0; }
 EOF
   _vesa=no
-  cc_check -lvbe -llrmi && _vesa=yes
+  if test "$system_name" = DJGPP ; then
+    cc_check -lvbe && _vesa=yes
+  else
+    cc_check -lvbe -llrmi && _vesa=yes
+  fi
 fi
 if test "$_vesa" = yes ; then
   _def_vesa='#define HAVE_VESA 1'
-  _libs_mplayer="$_libs_mplayer -lvbe -llrmi"
+  if test "$system_name" = DJGPP ; then
+    _libs_mplayer="$_libs_mplayer -lvbe"
+  else
+    _libs_mplayer="$_libs_mplayer -lvbe -llrmi"
+  fi
   _vosrc="$_vosrc vo_vesa.c vesa_lvo.c gtf.c"
   _vomodules="vesa $_vomodules"
 else
@@ -5281,6 +5309,36 @@ else
 fi
 echores "$_alsa"
 
+echocheck "Allegro audio"
+if test "$_allegro" = auto ; then
+  cat > $TMPC << EOF
+#include <allegro.h>
+int main(void) { allegro_init(); install_sound(DIGI_AUTODETECT, MIDI_NONE, NULL); return 0; }
+EOF
+  _allegro=no
+  if test -z "$_allegroconfig" ; then
+    cc_check `allegro-config --cflags --libs` && _allegro=yes && _allegroconfig=allegro-config
+    if test "$_allegro" = no ; then
+      cc_check -lalleg && _allegro=yes
+    fi
+  else
+    cc_check `$_allegroconfig --cflags --libs` && _allegro=yes
+  fi
+fi
+if test "$_allegro" = yes ; then
+  _def_allegro='#define HAVE_ALLEGRO 1'
+  _aosrc="$_aosrc ao_allegro.c"
+  _aomodules="allegro $_aomodules"
+  if test -z "$_allegroconfig" ; then
+    _libs_mplayer="$_libs_mplayer -lalleg"
+  else
+    _libs_mplayer="$_libs_mplayer `$_allegroconfig --libs`"
+  fi
+else
+  _def_allegro='#undef HAVE_ALLEGRO'
+  _noaomodules="allegro $_noaomodules"
+fi
+echores "$_allegro"
 
 echocheck "Sun audio"
 if test "$_sunaudio" = auto ; then
@@ -8141,6 +8199,7 @@ $_def_ossaudio_devmixer
 $_def_alsa5
 $_def_alsa9
 $_def_alsa1x
+$_def_allegro
 $_def_arts
 $_def_esd
 $_def_esd_latency
@@ -8233,9 +8292,9 @@ $_def_vcd
 #elif defined(HPUX)
 #define DEFAULT_CDROM_DEVICE    "/dev/cdrom"
 #define DEFAULT_DVD_DEVICE     "/dev/dvd"
-#elif defined(WIN32)
-#define DEFAULT_CDROM_DEVICE    "D:"
-#define DEFAULT_DVD_DEVICE	"D:"
+#elif defined(WIN32) || defined(__DJGPP__)
+#define DEFAULT_CDROM_DEVICE    "Z:"
+#define DEFAULT_DVD_DEVICE	"Z:"
 #elif defined(SYS_DARWIN)
 #define DEFAULT_CDROM_DEVICE    "/dev/disk1"
 #define DEFAULT_DVD_DEVICE	"/dev/rdiskN"

@@ -36,6 +36,11 @@
 
 #include <errno.h>
 
+#if defined(__DJGPP__) && defined(HAVE_VESA)
+#include <sys/nearptr.h>
+#include <crt0.h>
+#endif
+
 #include "version.h"
 
 #include "mp_msg.h"
@@ -1178,10 +1183,15 @@ static void print_status(float a_pos, float a_v, float corr)
     line[pos] = 0;
     mp_msg(MSGT_STATUSLINE, MSGL_STATUS, "%s%s\r", line, erase_to_end_of_line);
   } else {
+#ifdef __DJGPP__
+    line[pos] = 0;
+    mp_msg(MSGT_STATUSLINE, MSGL_STATUS, "%-*s\r", width-2, line);
+#else
     memset(&line[pos], ' ', width - pos);
     line[width] = 0;
     mp_msg(MSGT_STATUSLINE, MSGL_STATUS, "%s\r", line);
-  }
+#endif
+}
   free(line);
 }
 
@@ -2293,6 +2303,12 @@ int i;
 
 int gui_no_filename=0;
 
+#if defined(__DJGPP__) && defined(HAVE_VESA)
+  _crt0_startup_flags |= _CRT0_FLAG_NEARPTR;
+  if (!__djgpp_nearptr_enable())
+    return -1;
+#endif
+
   srand((int) time(NULL)); 
 
   InitTimer();
@@ -2629,7 +2645,7 @@ current_module = NULL;
 #endif
   
   /// Catch signals
-#ifndef __MINGW32__
+#if !defined(__MINGW32__) && !defined(__DJGPP__)
   signal(SIGCHLD,child_sighandler);
 #endif
 

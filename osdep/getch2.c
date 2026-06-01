@@ -3,7 +3,7 @@
 #include "config.h"
 
 //#define USE_TERMCAP
-#if !defined(__OS2__) && !defined(__MORPHOS__)
+#if !defined(__OS2__) && !defined(__MORPHOS__) && !defined(__DJGPP__)
 #define USE_IOCTL
 #endif
 

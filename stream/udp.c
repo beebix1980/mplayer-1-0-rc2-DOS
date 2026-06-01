@@ -45,6 +45,10 @@
 
 int reuse_socket=0;
 
+#ifdef __DJGPP__
+typedef int socklen_t;
+#endif
+
 /* Start listening on a UDP port. If multicast, join the group. */
 int
 udp_open_socket (URL_t *url)

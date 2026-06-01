@@ -34,6 +34,10 @@
 
 #include <vbe.h>
 
+#ifdef __DJGPP__
+#include <crt0.h>
+#endif
+
 #include "video_out.h"
 #include "video_out_internal.h"
 
@@ -164,10 +168,10 @@ static void vesa_term( void )
 #ifdef CONFIG_VIDIX
   else if(vidix_opened) { vidix_term();  vidix_opened = 0; }
 #endif
-  if(init_state) if((err=vbeRestoreState(init_state)) != VBE_OK) PRINT_VBE_ERR("vbeRestoreState",err);
-  init_state=NULL;
   if(init_mode) if((err=vbeSetMode(init_mode,NULL)) != VBE_OK) PRINT_VBE_ERR("vbeSetMode",err);
   init_mode=0;
+  if(init_state) if((err=vbeRestoreState(init_state)) != VBE_OK) PRINT_VBE_ERR("vbeRestoreState",err);
+  init_state=NULL;
   if(HAS_DGA()) vbeUnmapVideoBuffer((unsigned long)win.ptr,win.high);
   if(dga_buffer && !HAS_DGA()) free(dga_buffer);
   vbeDestroy();
@@ -680,7 +684,7 @@ config(uint32_t width, uint32_t height, uint32_t d_width, uint32_t d_height, uin
 	/* Find best mode here */
 	num_modes = 0;
 	mode_ptr = vib.VideoModePtr;
-	while(*mode_ptr++ != 0xffff) num_modes++;
+	while  (mode_ptr[num_modes] != 0xffff) num_modes++;
 	switch(format)
 	{
 		case IMGFMT_BGR8:
@@ -720,7 +724,6 @@ config(uint32_t width, uint32_t height, uint32_t d_width, uint32_t d_height, uin
 	{
 	  mp_msg(MSGT_VO,MSGL_V, "vo_vesa: Requested mode: %ux%u@%u (%s)\n",width,height,bpp,vo_format_name(format));
 	  mp_msg(MSGT_VO,MSGL_V, "vo_vesa: Total modes found: %u\n",num_modes);
-	  mode_ptr = vib.VideoModePtr;
 	  mp_msg(MSGT_VO,MSGL_V, "vo_vesa: Mode list:");
 	  for(i = 0;i < num_modes;i++)
 	  {
@@ -728,7 +731,6 @@ config(uint32_t width, uint32_t height, uint32_t d_width, uint32_t d_height, uin
 	  }
 	  mp_msg(MSGT_VO,MSGL_V, "\nvo_vesa: Modes in detail:\n");
 	}
-	mode_ptr = vib.VideoModePtr;
 	if(use_scaler)
 	{
 	    dstW = d_width;
@@ -777,7 +779,7 @@ config(uint32_t width, uint32_t height, uint32_t d_width, uint32_t d_height, uin
 	}
 	if(best_mode_idx != UINT_MAX)
 	{
-		video_mode = vib.VideoModePtr[best_mode_idx];
+		video_mode = mode_ptr[best_mode_idx];
 		fflush(stdout);
 		if((err=vbeGetMode(&init_mode)) != VBE_OK)
 		{
@@ -933,16 +935,15 @@ config(uint32_t width, uint32_t height, uint32_t d_width, uint32_t d_height, uin
 			 GTF constants might be read from monitor
 			 for best results, I don't have a spec (RM)
 		*/
+
+		if (((int)(vib.VESAVersion >> 8) & 0xff) > 2) 
+		{
 		
-		if (((int)(vib.VESAVersion >> 8) & 0xff) > 2) {
-		
-		if (set_refresh(video_mode_info.XResolution,video_mode_info.YResolution,video_mode,&crtc_pass))
-		video_mode = video_mode | 0x800;
+		    if (set_refresh(video_mode_info.XResolution,video_mode_info.YResolution,video_mode,&crtc_pass))
+		        video_mode = video_mode | 0x800;
 		
 		}
-		
-		;
-		
+
 		if ((err=vbeSetMode(video_mode,&crtc_pass)) != VBE_OK)
 		{
 			PRINT_VBE_ERR("vbeSetMode",err);
@@ -1086,6 +1087,10 @@ static int preinit(const char *arg)
 #ifdef CONFIG_VIDIX
   else if(vidix_name) pre_init_err = vidix_preinit(vidix_name,&video_out_vesa);
 #endif
+#ifdef __DJGPP__
+  if (!(_crt0_startup_flags & _CRT0_FLAG_NEARPTR))
+        return -1;
+#else
   // check if we can open /dev/mem (it will be opened later in config(), but if we
   // detect now that we can't we can exit cleanly)
   fd = open("/dev/mem", O_RDWR);
@@ -1093,6 +1098,7 @@ static int preinit(const char *arg)
   	return -1;
   else
   	close(fd);
+#endif
   if( mp_msg_test(MSGT_VO,MSGL_DBG3) )
         mp_msg(MSGT_VO,MSGL_DBG3, "vo_subdevice: initialization returns: %i\n",pre_init_err);
   return pre_init_err;

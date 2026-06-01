@@ -206,6 +206,9 @@ vo_functions_t* video_out_drivers[] =
 #ifdef HAVE_SVGALIB
 	&video_out_svga,
 #endif
+#ifdef HAVE_VESA
+	&video_out_vesa,
+#endif
 #ifdef HAVE_AA
 	&video_out_aa,
 #endif
@@ -230,9 +233,6 @@ vo_functions_t* video_out_drivers[] =
 #endif
 #ifdef HAVE_BL
 	&video_out_bl,
-#endif
-#ifdef HAVE_VESA
-	&video_out_vesa,
 #endif
 #ifdef HAVE_DIRECTFB
 	&video_out_directfb,

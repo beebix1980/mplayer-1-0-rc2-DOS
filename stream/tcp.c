@@ -34,6 +34,10 @@
 
 #include "tcp.h"
 
+#ifdef __DJGPP__
+typedef int socklen_t;
+#endif
+
 /* IPv6 options */
 int   network_prefer_ipv4 = 0;
 
@@ -224,7 +228,11 @@ connect2Server_with_af(char *host, int port, int af,int verb) {
 		mp_msg(MSGT_NETWORK,MSGL_ERR,MSGTR_MPDEMUX_NW_GetSockOptFailed,strerror(errno));
 		return TCP_ERROR_FATAL;
 	}
+#ifdef __DJGPP__
+ 	if(err > 0 && err != EISCONN) {
+#else
 	if(err > 0) {
+#endif
 		mp_msg(MSGT_NETWORK,MSGL_ERR,MSGTR_MPDEMUX_NW_ConnectError,strerror(err));
 		return TCP_ERROR_PORT;
 	}

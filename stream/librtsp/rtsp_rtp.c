@@ -45,6 +45,10 @@
 #include "../freesdp/common.h"
 #include "../freesdp/parser.h"
 
+#ifdef __DJGPP__
+typedef int socklen_t;
+#endif
+
 #define RTSP_DEFAULT_PORT 31336
 #define MAX_LENGTH 256
 

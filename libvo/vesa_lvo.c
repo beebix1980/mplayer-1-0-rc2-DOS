@@ -54,6 +54,7 @@ int vlvo_preinit(const char *drvname)
 {
   mp_msg(MSGT_VO,MSGL_WARN, MSGTR_LIBVO_VESA_ThisBranchIsNoLongerSupported);
   return -1;
+#if 0
   if( mp_msg_test(MSGT_VO,MSGL_DBG2) ) {
     mp_msg(MSGT_VO,MSGL_DBG2, "vesa_lvo: vlvo_preinit(%s) was called\n",drvname);}
 	lvo_handler = open(drvname,O_RDWR);
@@ -69,6 +70,7 @@ int vlvo_preinit(const char *drvname)
 	video_out_vesa.draw_osd=vlvo_draw_osd;
   video_out_vesa.control=vlvo_control;
 	return 0;
+#endif
 }
 
 int      vlvo_init(unsigned src_width,unsigned src_height,
@@ -78,6 +80,7 @@ int      vlvo_init(unsigned src_width,unsigned src_height,
   size_t i,awidth;
   mp_msg(MSGT_VO,MSGL_WARN, MSGTR_LIBVO_VESA_ThisBranchIsNoLongerSupported);
   return -1;
+#if 0
   if( mp_msg_test(MSGT_VO,MSGL_DBG2) ) {
     mp_msg(MSGT_VO,MSGL_DBG2, "vesa_lvo: vlvo_init() was called\n");}
 	image_width = src_width;
@@ -143,15 +146,20 @@ int      vlvo_init(unsigned src_width,unsigned src_height,
 	/*clear the buffer*/
 	memset(frames[0],0x80,mga_vid_config.frame_size*mga_vid_config.num_frames);
 	return 0;  
+#endif
 }
 
 void vlvo_term( void )
 {
+  mp_msg(MSGT_VO,MSGL_WARN, MSGTR_LIBVO_VESA_ThisBranchIsNoLongerSupported);
+    return;
+#if 0
   if( mp_msg_test(MSGT_VO,MSGL_DBG2) ) {
     mp_msg(MSGT_VO,MSGL_DBG2, "vesa_lvo: vlvo_term() was called\n");}
 	ioctl( lvo_handler,MGA_VID_OFF,0 );
 	munmap(frames[0],mga_vid_config.frame_size*mga_vid_config.num_frames);
 	if(lvo_handler != -1) close(lvo_handler);
+#endif
 }
 
 uint32_t vlvo_draw_slice_420(uint8_t *image[], int stride[], int w,int h,int x,int y)

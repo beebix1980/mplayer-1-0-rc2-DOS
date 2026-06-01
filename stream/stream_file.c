@@ -113,7 +113,7 @@ static int open_f(stream_t *stream,int mode, void* opts, int* file_format) {
     return STREAM_ERROR;
   }
 
-#if defined(__CYGWIN__)|| defined(__MINGW32__)
+#if defined(__CYGWIN__) || defined(__MINGW32__) || defined(__DJGPP__)
   m |= O_BINARY;
 #endif    
 

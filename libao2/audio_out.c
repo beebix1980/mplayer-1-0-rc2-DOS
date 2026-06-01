@@ -44,6 +44,9 @@ extern ao_functions_t audio_out_null;
 #ifdef HAVE_ALSA1X
  extern ao_functions_t audio_out_alsa;
 #endif
+#ifdef HAVE_ALLEGRO
+extern ao_functions_t audio_out_allegro;
+#endif
 #ifdef HAVE_NAS
 extern ao_functions_t audio_out_nas;
 #endif
@@ -106,6 +109,9 @@ ao_functions_t* audio_out_drivers[] =
         &audio_out_sun,
 #endif
 // wrappers:
+#ifdef HAVE_ALLEGRO
+	&audio_out_allegro,
+#endif
 #ifdef USE_ARTS
         &audio_out_arts,
 #endif

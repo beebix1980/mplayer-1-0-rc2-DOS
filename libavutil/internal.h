@@ -118,7 +118,7 @@
 #endif
 
 // Use rip-relative addressing if compiling PIC code on x86-64.
-#if defined(__MINGW32__) || defined(__CYGWIN__) || \
+#if defined(__MINGW32__) || defined(__CYGWIN__) || defined(__DJGPP__) || \
     defined(__OS2__) || (defined (__OpenBSD__) && !defined(__ELF__))
 #    if defined(ARCH_X86_64) && defined(PIC)
 #        define MANGLE(a) "_" #a"(%%rip)"
@@ -277,5 +277,38 @@ static av_always_inline long int lrintf(float x)
     return (int)(rint(x));
 }
 #endif /* HAVE_LRINTF */
+
+#ifdef __DJGPP__
+static av_always_inline long int lrint(double x)
+{
+    int32_t i;
+    asm volatile(
+        "fistpl %0\n\t"
+        : "=m" (i) : "t" (x) : "st"
+    );
+    return i;
+}
+
+static av_always_inline long long llrint(double x)
+{
+    int64_t i;
+    asm volatile(
+        "fistpll %0\n\t"
+        : "=m" (i) : "t" (x) : "st"
+    );
+    return i;
+}
+
+static av_always_inline float roundf(float x)
+{
+   return (x + (x < 0 ? -0.5 : 0.5));
+}
+
+static av_always_inline double round(double v)
+{
+   return floor(v + 0.5);
+}
+
+#endif /* __DJGPP__ */
 
 #endif /* INTERNAL_H */
