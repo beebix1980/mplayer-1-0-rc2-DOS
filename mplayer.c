@@ -1105,6 +1105,9 @@ static void sadd_hhmmssf(char *buf, unsigned *pos, int len, float time) {
  */
 static void print_status(float a_pos, float a_v, float corr)
 {
+#ifdef __DJGPP__
+  return;
+#endif
   sh_video_t * const sh_video = mpctx->sh_video;
   int width;
   char *line;

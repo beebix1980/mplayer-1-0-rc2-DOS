@@ -34,6 +34,9 @@
 #endif
 
 #include <unistd.h>
+#ifdef __DJGPP__
+#include <conio.h>
+#endif
 
 #include "mp_fifo.h"
 #include "keycodes.h"
@@ -250,6 +253,9 @@ void getch2(void)
 static int getch2_status=0;
 
 void getch2_enable(void){
+#ifdef __DJGPP__
+    _setcursortype(_NOCURSOR);
+#endif
 #ifdef HAVE_TERMIOS
 struct termios tio_new;
     tcgetattr(0,&tio_orig);
@@ -264,6 +270,9 @@ struct termios tio_new;
 
 void getch2_disable(void){
     if(!getch2_status) return; // already disabled / never enabled
+#ifdef __DJGPP__
+    _setcursortype(_NORMALCURSOR);
+#endif
 #ifdef HAVE_TERMIOS
     tcsetattr(0,TCSANOW,&tio_orig);
 #endif
