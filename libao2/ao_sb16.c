@@ -224,8 +224,21 @@ static int init(int rate, int channels, int format, int flags) {
 	(void)flags;
 
 	if (format != AF_FORMAT_S16_LE) {
-		mp_msg(MSGT_AO, MSGL_ERR, "ao_sb16: Unsupported format, only S16_LE is supported.\n");
-		return 0;
+		mp_msg(MSGT_AO, MSGL_V, "ao_sb16: Forcing format to S16_LE\n");
+		ao_data.format = AF_FORMAT_S16_LE;
+		format = AF_FORMAT_S16_LE;
+	}
+
+	if (rate > 44100) {
+		mp_msg(MSGT_AO, MSGL_V, "ao_sb16: Forcing rate to 44100 (max)\n");
+		ao_data.samplerate = 44100;
+		rate = 44100;
+	}
+
+	if (channels > 2) {
+		mp_msg(MSGT_AO, MSGL_V, "ao_sb16: Forcing channels to 2 (max)\n");
+		ao_data.channels = 2;
+		channels = 2;
 	}
 
 	sb16_detect();
@@ -259,7 +272,11 @@ static int init(int rate, int channels, int format, int flags) {
 
 	/* start 16 bit auto init dma */
 	sb16_dsp_write(sb_port, 0xB6);
-	sb16_dsp_write(sb_port, 0x30);
+	if (channels == 2) {
+		sb16_dsp_write(sb_port, 0x30); /* Signed, Stereo */
+	} else {
+		sb16_dsp_write(sb_port, 0x10); /* Signed, Mono */
+	}
 
 	uint16_t dsp_len = (block_size / 2) - 1;
 	sb16_dsp_write(sb_port, dsp_len & 0xFF);
@@ -323,7 +340,8 @@ static int get_space(void) {
 	if (free_space <= 0) free_space += total_size;
 
 	if (free_space > 1024) {
-		return free_space - 1024;
+		/* Return space rounded down to block_size to avoid trickle feeding */
+		return ((free_space - 1024) / block_size) * block_size;
 	}
 
 	return 0;
