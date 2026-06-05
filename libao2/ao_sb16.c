@@ -287,7 +287,7 @@ static int init(int rate, int channels, int format, int flags) {
 	ao_data.format = AF_FORMAT_S16_LE;
 	ao_data.bps = rate * channels * 2;
 	ao_data.buffersize = total_size;
-	ao_data.outburst = block_size;
+	ao_data.outburst = 1024;
 
 	write_pos = 0;
 	play_called = 0;
@@ -333,6 +333,10 @@ static void reset(void) {
 static int get_space(void) {
 	if (!dma_buffer_phys) return 0;
 
+	/* ACK pending interrupts to prevent DSP halting in emulators */
+	inportb(sb_port + 0xF);
+	inportb(sb_port + 0xE);
+
 	/* Absolute byte offset that the hardware DMA is currently reading */
 	int play_pos = dma_get_play_pos();
 
@@ -340,8 +344,8 @@ static int get_space(void) {
 	if (free_space <= 0) free_space += total_size;
 
 	if (free_space > 1024) {
-		/* Return space rounded down to block_size to avoid trickle feeding */
-		return ((free_space - 1024) / block_size) * block_size;
+		/* Return exact space to avoid blocking the player when it writes small chunks */
+		return free_space - 1024;
 	}
 
 	return 0;
