@@ -39,7 +39,7 @@ static int sb_dma16 = 5;
 static int dma_selector = -1;
 static uint32_t dma_buffer_phys = 0;
 static int total_size = 32768;
-static int block_size = 16384;
+static int block_size = 4096;
 static int write_pos = 0;
 
 static uint8_t orig_pic1_mask = 0xff;
@@ -149,11 +149,12 @@ static int allocate_dma_buffer(int size) {
 	uint32_t start1 = phys;
 	uint32_t end1 = phys + size - 1;
 
-	/* memory calculation: VMs often have buggy 16-bit DMA that wraps at 64KB !? */
-	if ((start1 / 65536) == (end1 / 65536)) {
+	/* 16-bit DMA uses 128KB pages, so check 131072 boundaries! */
+	if ((start1 / 131072) == (end1 / 131072)) {
 		dma_buffer_phys = start1;
 	} else {
-		dma_buffer_phys = phys + size;
+		/* Align to next 128KB boundary to avoid crossing */
+		dma_buffer_phys = (start1 + 131071) & ~131071;
 	}
 	return 1;
 }
@@ -278,7 +279,8 @@ static int init(int rate, int channels, int format, int flags) {
 		sb16_dsp_write(sb_port, 0x10); /* Signed, Mono */
 	}
 
-	uint16_t dsp_len = (block_size / 2) - 1;
+	// Program SB16 DSP for 16-bit auto-init DMA 
+	uint16_t dsp_len = (total_size / 2) - 1;
 	sb16_dsp_write(sb_port, dsp_len & 0xFF);
 	sb16_dsp_write(sb_port, dsp_len >> 8);
 
@@ -287,7 +289,7 @@ static int init(int rate, int channels, int format, int flags) {
 	ao_data.format = AF_FORMAT_S16_LE;
 	ao_data.bps = rate * channels * 2;
 	ao_data.buffersize = total_size;
-	ao_data.outburst = 1024;
+	ao_data.outburst = block_size;
 
 	write_pos = 0;
 	play_called = 0;
@@ -333,10 +335,6 @@ static void reset(void) {
 static int get_space(void) {
 	if (!dma_buffer_phys) return 0;
 
-	/* ACK pending interrupts to prevent DSP halting in emulators */
-	inportb(sb_port + 0xF);
-	inportb(sb_port + 0xE);
-
 	/* Absolute byte offset that the hardware DMA is currently reading */
 	int play_pos = dma_get_play_pos();
 
@@ -344,8 +342,8 @@ static int get_space(void) {
 	if (free_space <= 0) free_space += total_size;
 
 	if (free_space > 1024) {
-		/* Return exact space to avoid blocking the player when it writes small chunks */
-		return free_space - 1024;
+		/* Return space rounded down to block_size to avoid trickle feeding */
+		return ((free_space - 1024) / block_size) * block_size;
 	}
 
 	return 0;

@@ -1,0 +1,21 @@
+MPlayer 1.0 rc2 build using
+CFLAGS="-O2 -march=i586 -mtune=i586 -pipe -Wno-incompatible-pointer-types -Wno-int-conversion -Wno-implicit-function-declaration -Wno-implicit-int" ./configure \
+  --enable-cross-compile \
+  --target=i586-pc-msdosdjgpp \
+  --cc=i586-pc-msdosdjgpp-gcc \
+  --as=i586-pc-msdosdjgpp-as \
+  --ar=i586-pc-msdosdjgpp-ar \
+  --ranlib=i586-pc-msdosdjgpp-ranlib \
+  --host-cc=gcc \
+  --enable-vesa \
+  --enable-mmx \
+  --enable-mmxext \
+  --enable-sse \
+  --disable-sse2 \
+  --disable-win32dll \
+  --disable-qtx \
+  --disable-real \
+  --disable-xanim \
+  --disable-gcc-check \
+
+
